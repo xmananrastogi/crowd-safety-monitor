@@ -36,7 +36,9 @@ class VideoStream:
         self.frame_skip = 1
         if self.target_fps and self.target_fps < self.original_fps:
             self.frame_skip = int(round(self.original_fps / self.target_fps))
-            
+        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
         self.frame_count = 0
         self.start_time = time.time()
 

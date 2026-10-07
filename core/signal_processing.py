@@ -1,74 +1,75 @@
 """
-Implements Signals & Systems concepts: Filtering, Duration tracking, and Risk equation.
+Implements Signals & Systems concepts: Discrete-Time Filtering and State tracking.
+Provides comparative implementations of FIR (Moving Average) and IIR (EWMA) filters.
 """
 import numpy as np
 from collections import deque
 
 class SignalProcessor:
-    def __init__(self, window_size, max_capacity, max_duration_frames):
-        # Moving average filter buffers (Low-Pass Filter)
+    def __init__(self, window_size, ewma_alpha, max_duration_frames, min_duration_frames=30, decay_rate=2):
+        self.window_size = window_size
+        self.ewma_alpha = ewma_alpha
+        
+        # FIR: Moving average filter buffers (Low-Pass Filter)
         self.density_buffer = deque(maxlen=window_size)
         self.motion_buffer = deque(maxlen=window_size)
         
-        self.max_capacity = max_capacity
+        # IIR: Exponentially Weighted Moving Average state
+        self.ewma_density = None
+        self.ewma_congestion = None
+        
         self.max_duration_frames = max_duration_frames
+        self.min_duration_frames = min_duration_frames
+        self.decay_rate = decay_rate
         
         # Duration accumulator
         self.duration_counter = 0
 
-    def moving_average(self, new_value, buffer):
-        """Applies a causal Moving Average (Low-Pass Filter) to the signal."""
-        buffer.append(new_value)
-        return float(np.mean(buffer))
-
-    def calculate_congestion(self, avg_motion):
+    @property
+    def group_delay_frames(self):
         """
-        Maps motion magnitude to a 0-100% Congestion signal.
-        Low movement = High congestion.
-        (This mapping assumes max expected motion magnitude is roughly 5.0 for normalization)
+        Calculates the theoretical Group Delay (τ) for the FIR Moving Average filter.
+        For a symmetric MA filter of length N, delay is exactly (N-1)/2 samples.
         """
-        MAX_EXPECTED_MOTION = 5.0
-        motion_norm = min(avg_motion / MAX_EXPECTED_MOTION, 1.0)
-        
-        # Inverse relationship: Congestion = 1.0 - motion
-        congestion_norm = 1.0 - motion_norm
-        return congestion_norm * 100.0
+        return (self.window_size - 1) / 2.0
 
-    def process(self, raw_person_count, raw_motion, dur_thresh_d, dur_thresh_c):
+    def process(self, normalized_density, raw_congestion, dur_thresh_d, dur_thresh_c):
         """
         Processes instantaneous measurements into smoothed signals and calculates state.
+        Returns both FIR (default) and EWMA (experimental) outputs.
         """
-        # 1. Normalize Density (0-100%)
-        raw_density = min((raw_person_count / self.max_capacity) * 100.0, 100.0)
+        # 1. FIR Low-Pass Filter
+        self.density_buffer.append(normalized_density)
+        self.motion_buffer.append(raw_congestion)
         
-        # 2. Convert Motion to Congestion (0-100%)
-        raw_congestion = self.calculate_congestion(raw_motion)
+        fir_density = float(np.mean(self.density_buffer))
+        fir_congestion = float(np.mean(self.motion_buffer))
         
-        # 3. Apply Low-Pass Filter (Temporal Smoothing)
-        smoothed_density = self.moving_average(raw_density, self.density_buffer)
-        smoothed_congestion = self.moving_average(raw_congestion, self.motion_buffer)
+        # 2. IIR EWMA Filter
+        if self.ewma_density is None:
+            # Initialization
+            self.ewma_density = normalized_density
+            self.ewma_congestion = raw_congestion
+        else:
+            self.ewma_density = (self.ewma_alpha * normalized_density) + ((1.0 - self.ewma_alpha) * self.ewma_density)
+            self.ewma_congestion = (self.ewma_alpha * raw_congestion) + ((1.0 - self.ewma_alpha) * self.ewma_congestion)
         
-        # 4. State Tracking: Congestion Duration
-        if smoothed_density > dur_thresh_d and smoothed_congestion > dur_thresh_c:
+        # 3. State Tracking: Abnormal Congestion Duration (Using FIR for standard risk logic)
+        if fir_density > dur_thresh_d and fir_congestion > dur_thresh_c:
             self.duration_counter += 1
         else:
-            # Decay duration if conditions improve
-            self.duration_counter = max(0, self.duration_counter - 2)
+            self.duration_counter = max(0, self.duration_counter - self.decay_rate)
             
-        duration_score = min((self.duration_counter / self.max_duration_frames) * 100.0, 100.0)
-        
-        return smoothed_density, smoothed_congestion, duration_score
-
-    def calculate_risk(self, density, congestion, duration, w_d, w_c, w_t):
-        """Calculates the Risk index based on the proposed weighted equation."""
-        risk = (w_d * density) + (w_c * congestion) + (w_t * duration)
-        return min(risk, 100.0)
-        
-    def get_risk_category(self, risk_score, safe_max, warn_max):
-        """Classifies the numerical risk into discrete states."""
-        if risk_score <= safe_max:
-            return "Safe"
-        elif risk_score <= warn_max:
-            return "Warning"
+        # 4. Calculate T[n]
+        if self.duration_counter < self.min_duration_frames:
+            duration_score = 0.0
         else:
-            return "High Risk"
+            duration_score = min((self.duration_counter / self.max_duration_frames) * 100.0, 100.0)
+            
+        return {
+            'fir_density': fir_density,
+            'fir_congestion': fir_congestion,
+            'ewma_density': float(self.ewma_density),
+            'ewma_congestion': float(self.ewma_congestion),
+            'duration_score': duration_score
+        }

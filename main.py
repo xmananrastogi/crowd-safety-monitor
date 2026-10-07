@@ -1,114 +1,230 @@
 """
-Streamlit dashboard for Crowd Safety Monitoring.
-Run this using: streamlit run main.py
+Main Entry Point for the Crowd Safety Monitoring Pipeline.
+Offline CLI processor that processes a video end-to-end.
+
+Usage:
+    python main.py --input data/sample_video.mp4 --output data/output
 """
-import streamlit as st
+import os
+import argparse
+import logging
 import cv2
-import numpy as np
-import time
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import config
 from core.video import VideoStream
 from app.pipeline import CrowdSafetyPipeline
 
-st.set_page_config(page_title="Crowd Safety Monitor", layout="wide")
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
 
-st.title("Vision-Based Crowd Safety Monitoring")
-st.markdown("Monitoring Spatial Density, Temporal Congestion, and Duration to estimate Risk.")
-
-# Sidebar for config tuning
-st.sidebar.header("Signal & System Configuration")
-st.sidebar.markdown("Tune the weights for the Risk Equation: $R[n] = w_1D[n] + w_2C[n] + w_3T[n]$")
-
-w_d = st.sidebar.slider("Density Weight (w1)", 0.0, 1.0, config.WEIGHT_DENSITY)
-w_c = st.sidebar.slider("Congestion Weight (w2)", 0.0, 1.0, config.WEIGHT_CONGESTION)
-w_t = st.sidebar.slider("Duration Weight (w3)", 0.0, 1.0, config.WEIGHT_DURATION)
-
-# Normalize weights so they sum to 1.0 (optional but good practice)
-total_w = w_d + w_c + w_t
-if total_w > 0:
-    w_d, w_c, w_t = w_d/total_w, w_c/total_w, w_t/total_w
-
-# Initialize pipeline in session state so it persists across reruns
-if 'pipeline' not in st.session_state:
-    st.session_state.pipeline = CrowdSafetyPipeline()
-
-if 'video_stream' not in st.session_state:
-    st.session_state.video_stream = None
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("Live CCTV Feed")
-    video_placeholder = st.empty()
-
-with col2:
-    st.subheader("Real-Time Signals")
-    risk_metric = st.empty()
-    density_metric = st.empty()
-    congestion_metric = st.empty()
+def plot_results(history, output_dir):
+    """Generates the required plots from the CSV telemetry."""
+    if not history:
+        logging.warning("No history found to plot.")
+        return
+        
+    df = pd.DataFrame(history)
+    # Get the max risk zone per frame to represent the overall scene
+    idx = df.groupby('frame_index_n')['R_z[n]'].idxmax()
+    df = df.loc[idx].sort_values('frame_index_n').reset_index(drop=True)
+    n = df['frame_index_n']
     
-    st.subheader("Signal Plot")
-    chart_placeholder = st.line_chart(pd.DataFrame(columns=["Density", "Congestion", "Risk"]))
-
-# Start/Stop controls
-start_btn = st.sidebar.button("Start Monitoring")
-stop_btn = st.sidebar.button("Stop")
-
-if start_btn:
-    # We use a placeholder video (or webcam)
-    st.session_state.video_stream = VideoStream(config.VIDEO_SOURCE)
+    # Create a 6-subplot figure
+    fig, axes = plt.subplots(6, 1, figsize=(14, 24), sharex=True)
     
-    history = []
+    # 1. Density Plot
+    axes[0].plot(n, df['D_z[n]'], label='Raw Density ($D[n]$)', color='blue', alpha=0.3, linestyle='--')
+    axes[0].plot(n, df['D_smoothed_z[n]'], label='Filtered Density', color='blue', linewidth=2)
+    axes[0].set_title('Spatial Crowd Density')
+    axes[0].set_ylabel('Density (%)')
+    axes[0].legend()
+    axes[0].grid(True, linestyle=':', alpha=0.6)
     
-    while True:
-        frame = st.session_state.video_stream.read_frame()
-        if frame is None:
-            st.warning("Video stream ended or cannot be read.")
-            break
-            
-        # Process the frame
-        # Temporarily override weights with UI values
-        st.session_state.pipeline.signal_processor.calculate_risk = lambda d, c, t, wd, wc, wt: min((wd*d) + (wc*c) + (wt*t), 100.0)
-        
-        results = st.session_state.pipeline.process_frame(frame)
-        
-        # Draw bounding boxes
-        display_frame = frame.copy()
-        for box in results['boxes']:
-            x1, y1, x2, y2 = map(int, box)
-            cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            
-        # Add overlay text
-        cv2.putText(display_frame, f"Risk: {results['risk_category']}", (20, 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255) if results['risk_score'] > 60 else (0, 255, 0), 2)
-            
-        # Convert BGR to RGB for Streamlit
-        display_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
-        video_placeholder.image(display_frame, channels="RGB", use_container_width=True)
-        
-        # Update metrics
-        risk_color = "red" if results['risk_score'] > 60 else "orange" if results['risk_score'] > 30 else "green"
-        risk_metric.markdown(f"### Risk Score: <span style='color:{risk_color}'>{results['risk_score']:.1f}% ({results['risk_category']})</span>", unsafe_allow_html=True)
-        density_metric.write(f"**Smoothed Density:** {results['density']:.1f}%")
-        congestion_metric.write(f"**Smoothed Congestion:** {results['congestion']:.1f}%")
-        
-        # Update Chart
-        history.append({
-            "Density": results['density'],
-            "Congestion": results['congestion'],
-            "Risk": results['risk_score']
-        })
-        if len(history) > 100:
-            history.pop(0)
-            
-        chart_placeholder.line_chart(pd.DataFrame(history))
+    # 2. Motion Plot
+    axes[1].plot(n, df['M_raw_z[n]'], label='Raw Motion Magnitude ($M_{raw}[n]$)', color='green')
+    axes[1].set_title('Temporal Crowd Motion (Optical Flow Magnitude)')
+    axes[1].set_ylabel('Motion Magnitude')
+    axes[1].legend()
+    axes[1].grid(True, linestyle=':', alpha=0.6)
+    
+    # 3. Filtered Congestion Plot
+    axes[2].plot(n, df['C_z[n]'], label='Raw Congestion', color='orange', alpha=0.3, linestyle='--')
+    axes[2].plot(n, df['C_smoothed_z[n]'], label='Filtered Congestion ($C[n]$)', color='orange', linewidth=2)
+    axes[2].set_title('Congestion Signal (Low Motion = High Congestion)')
+    axes[2].set_ylabel('Congestion (%)')
+    axes[2].legend()
+    axes[2].grid(True, linestyle=':', alpha=0.6)
+    
+    # 4. Congestion Duration Plot
+    axes[3].plot(n, df['T_z[n]'], label='Normalized Duration ($T[n]$)', color='purple', linewidth=2)
+    axes[3].set_title('Abnormal Congestion Duration Tracking')
+    axes[3].set_ylabel('Duration Score (%)')
+    axes[3].legend()
+    axes[3].grid(True, linestyle=':', alpha=0.6)
+    
+    # 5. Suffocation Risk Plot
+    axes[4].plot(n, df.get('Suffocation_Risk_z[n]', [0]*len(n)), label='Suffocation Risk', color='red', linewidth=2)
+    axes[4].set_title('Compressive Asphyxia (Suffocation) Risk')
+    axes[4].set_ylabel('Risk (%)')
+    axes[4].legend()
+    axes[4].grid(True, linestyle=':', alpha=0.6)
+    
+    # 6. Risk Score Plot
+    axes[5].plot(n, df['R_z[n]'], label='Total Risk ($R[n]$)', color='black', linewidth=2.5)
+    axes[5].axhline(y=config.RISK_SAFE_MAX, color='green', linestyle='--', label='Safe Threshold')
+    axes[5].axhline(y=config.RISK_WARN_MAX, color='orange', linestyle='--', label='Warning Threshold')
+    axes[5].set_title('Overall Crowd Safety Risk Index')
+    axes[5].set_xlabel('Discrete Time Step / Frame Index ($n$)')
+    axes[5].set_ylabel('Risk Score (0-100)')
+    axes[5].set_ylim(0, 105)
+    axes[5].legend()
+    axes[5].grid(True, linestyle=':', alpha=0.6)
+    
+    plt.tight_layout()
+    plot_path = os.path.join(output_dir, 'pipeline_plots.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    logging.info(f"Saved pipeline plots to {plot_path}")
+    plt.close()
 
-        if stop_btn:
-            break
+def print_summary_statistics(history):
+    """Calculates and prints final summary statistics."""
+    if not history:
+        return
+        
+    df = pd.DataFrame(history)
+    idx = df.groupby('frame_index_n')['R_z[n]'].idxmax()
+    df = df.loc[idx].sort_values('frame_index_n').reset_index(drop=True)
+    
+    logging.info("\n=============================================")
+    logging.info("          FINAL SUMMARY STATISTICS           ")
+    logging.info("=============================================")
+    logging.info(f"Total Frames Processed: {len(df)}")
+    
+    # Averages & Maximums
+    logging.info(f"Average Person Count:   {df['D_raw_z[n]'].mean():.1f} people/frame")
+    logging.info(f"Maximum Density:        {df['D_z[n]'].max():.1f}%")
+    logging.info(f"Average Motion:         {df['M_raw_z[n]'].mean():.2f}")
+    logging.info(f"Maximum Duration:       {df['T_z[n]'].max():.1f}%")
+    if 'Suffocation_Risk_z[n]' in df.columns:
+        logging.info(f"Max Suffocation Risk:   {df['Suffocation_Risk_z[n]'].max():.1f}%")
+    
+    # Risk Metrics
+    logging.info("--- Risk Metrics ---")
+    logging.info(f"Maximum Risk Score:     {df['R_z[n]'].max():.1f}")
+    logging.info(f"Average Risk Score:     {df['R_z[n]'].mean():.1f}")
+    
+    # States
+    safe_frames = len(df[df['Risk_Category'] == 'Safe'])
+    warn_frames = len(df[df['Risk_Category'] == 'Warning'])
+    high_frames = len(df[df['Risk_Category'] == 'High Risk'])
+    total = len(df)
+    
+    logging.info(f"Time in Safe State:     {safe_frames} frames ({(safe_frames/total)*100:.1f}%)")
+    logging.info(f"Time in Warning State:  {warn_frames} frames ({(warn_frames/total)*100:.1f}%)")
+    logging.info(f"Time in High Risk State:{high_frames} frames ({(high_frames/total)*100:.1f}%)")
+    logging.info("=============================================\n")
 
-if stop_btn and st.session_state.video_stream is not None:
-    st.session_state.video_stream.release()
-    st.session_state.video_stream = None
-    st.sidebar.success("Stopped monitoring.")
+def main():
+    setup_logging()
+    
+    parser = argparse.ArgumentParser(description="End-to-End Crowd Safety Pipeline (CLI)")
+    parser.add_argument('--input', type=str, required=True, help="Path to input video file")
+    parser.add_argument('--output_dir', type=str, default="data/output", help="Directory to save outputs")
+    args = parser.parse_args()
+    
+    input_path = args.input
+    output_dir = args.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if not os.path.exists(input_path):
+        logging.error(f"Input video not found: {input_path}")
+        return
+        
+    logging.info(f"Initializing pipeline for video: {input_path}")
+    
+    # 1. Initialize Reused Modules
+    video_stream = VideoStream(input_path)
+    pipeline = CrowdSafetyPipeline()
+    
+    # Setup VideoWriter
+    first_data = video_stream.read_frame()
+    if first_data is None:
+        logging.error("Failed to read first frame.")
+        return
+        
+    frame_h, frame_w = first_data['frame'].shape[:2]
+    fps = video_stream.get_fps()
+    
+    output_video_path = os.path.join(output_dir, "annotated_output.mp4")
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_w, frame_h))
+    
+    # Re-initialize stream to process first frame again properly
+    video_stream.release()
+    video_stream = VideoStream(input_path)
+    
+    logging.info("Starting processing loop... (This may take a while depending on video length)")
+    
+    try:
+        while True:
+            data = video_stream.read_frame()
+            if data is None:
+                break # EOF
+                
+            frame = data['frame']
+            
+            # 2. Run the End-to-End Pipeline
+            results = pipeline.process_frame(frame, data['frame_number'], data['timestamp_ms'])
+            if results is None:
+                continue
+                
+            # 3. Create Annotated Video Frame
+            annotated_frame = pipeline.detector.draw_boxes(frame, results['boxes'], results['confidences'])
+            annotated_frame = pipeline.motion_estimator.draw_flow_arrows(annotated_frame, results['flow'])
+            
+            # Draw Risk Status overlay
+            risk = results['risk_score']
+            category = results['risk_category']
+            if category == 'High Risk':
+                color = (0, 0, 255) # Red (BGR)
+            elif category == 'Warning':
+                color = (0, 165, 255) # Orange
+            else:
+                color = (0, 255, 0) # Green
+                
+            cv2.putText(annotated_frame, f"Risk: {risk:.1f} ({category})", (20, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+                        
+            video_writer.write(annotated_frame)
+            
+            # Progress tracking
+            if data['frame_number'] % 30 == 0:
+                logging.info(f"Processed {data['frame_number']} frames. Current Risk: {risk:.1f} ({category})")
+                
+    except Exception as e:
+        logging.error(f"Error during processing: {e}")
+        
+    finally:
+        # Cleanup
+        video_stream.release()
+        video_writer.release()
+        logging.info(f"Saved annotated video to: {output_video_path}")
+        
+        # 4. Save CSV Telemetry
+        csv_path = os.path.join(output_dir, "crowd_signals.csv")
+        pipeline.save_to_csv(csv_path)
+        
+        # 5. Generate Plots
+        plot_results(pipeline.history, output_dir)
+        
+        # 6. Final Summary Statistics
+        print_summary_statistics(pipeline.history)
+
+if __name__ == "__main__":
+    main()
