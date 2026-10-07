@@ -93,23 +93,25 @@ class PersonDetector:
         for box, t_id, conf in zip(boxes, ids, confidences):
             x1, y1, x2, y2 = map(int, box)
             
-            # Draw box
-            cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            # Sleek cyan box with thin line
+            cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 200, 0), 1) # BGR -> Cyan
             
-            # Draw label
-            id_text = f"ID:{int(t_id)}" if t_id is not None else ""
-            label = f"{id_text} {conf:.2f}".strip()
-            cv2.putText(display_frame, label, (x1, max(y1 - 10, 10)), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            # Subtle small text (dark on cyan background)
+            if t_id is not None:
+                id_text = f"#{int(t_id)}"
+                (w, h), _ = cv2.getTextSize(id_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+                cv2.rectangle(display_frame, (x1, max(y1 - h - 4, 0)), (x1 + w, max(y1, h+4)), (255, 200, 0), -1)
+                cv2.putText(display_frame, id_text, (x1, max(y1 - 4, 10)), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
                         
-            # Draw trajectory path
+            # Draw trajectory path with subtle colors
             if t_id is not None:
                 t_id = int(t_id)
                 if t_id in self.trajectories and len(self.trajectories[t_id]) > 1:
                     pts = np.array(self.trajectories[t_id], np.int32)
                     pts = pts.reshape((-1, 1, 2))
-                    # Draw a blue trajectory line behind the person
-                    cv2.polylines(display_frame, [pts], isClosed=False, color=(255, 0, 0), thickness=2)
+                    # Draw subtle cyan trajectory
+                    cv2.polylines(display_frame, [pts], isClosed=False, color=(255, 200, 0), thickness=1)
                         
         return display_frame
         

@@ -41,11 +41,13 @@ def process_video():
             # Display a waiting placeholder frame
             import numpy as np
             blank_image = np.zeros((720, 1280, 3), np.uint8)
-            text = "AWAITING VIDEO UPLOAD..."
-            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
+            blank_image[:] = (21, 17, 15) # Dark slate background
+            
+            text = "SYSTEM STANDBY - UPLOAD VIDEO TO BEGIN ANALYSIS"
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_DUPLEX, 0.6, 1)[0]
             text_x = (1280 - text_size[0]) // 2
             text_y = (720 + text_size[1]) // 2
-            cv2.putText(blank_image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 150, 150), 2)
+            cv2.putText(blank_image, text, (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX, 0.6, (150, 150, 150), 1)
             
             ret, buffer = cv2.imencode('.jpg', blank_image)
             current_frame = buffer.tobytes()

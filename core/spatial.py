@@ -85,14 +85,13 @@ class ZoneManager:
     def draw_zones(self, frame):
         """Draws the spatial zones on the frame."""
         display_frame = frame.copy()
+        overlay = display_frame.copy()
+        
         for name, polygon in self.zones.items():
             if polygon is not None:
-                cv2.polylines(display_frame, [polygon], True, (255, 0, 0), 2)
-                M = cv2.moments(polygon)
-                if M['m00'] != 0:
-                    cx = int(M['m10']/M['m00'])
-                    cy = int(M['m01']/M['m00'])
-                    cv2.putText(display_frame, name, (cx-20, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-            else:
-                cv2.putText(display_frame, f"Zone: {name} (Global)", (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                # Draw subtle white lines with low opacity
+                cv2.polylines(overlay, [polygon], True, (255, 255, 255), 1)
+                
+        # Blend overlay for sleek glass look
+        display_frame = cv2.addWeighted(overlay, 0.3, display_frame, 0.7, 0)
         return display_frame
