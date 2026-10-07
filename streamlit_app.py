@@ -8,6 +8,8 @@ import cv2
 import pandas as pd
 import time
 from datetime import datetime
+import tempfile
+import os
 
 import config
 from core.video import VideoStream
@@ -15,12 +17,19 @@ from app.pipeline import CrowdSafetyPipeline
 
 st.set_page_config(page_title="Crowd Safety CCTV v2", layout="wide", initial_sidebar_state="expanded")
 
-st.warning("⚠️ **PROTOTYPE / RESEARCH PROJECT**: This system is an academic proof-of-concept. It does NOT predict stampedes.")
-st.title("Crowd Safety Monitoring System (Multi-Zone)")
+st.title("🛡️ Crowd Safety Monitoring System (Multi-Zone)")
 
 # --- SIDEBAR CONFIGURATION ---
-st.sidebar.header("Configuration")
-risk_model_ui = st.sidebar.selectbox("Experimental Risk Model", ["Linear", "Interaction", "Persistence"], index=["Linear", "Interaction", "Persistence"].index(config.RISK_MODEL))
+st.sidebar.header("⚙️ Configuration")
+
+st.sidebar.markdown("### 📹 Video Source")
+upload_option = st.sidebar.radio("Input Type", ["Default Test Video", "Upload CCTV Video", "Live Webcam"], label_visibility="collapsed")
+uploaded_file = None
+if upload_option == "Upload CCTV Video":
+    uploaded_file = st.sidebar.file_uploader("Upload Video (.mp4, .avi, .mov)", type=["mp4", "avi", "mov"])
+    
+st.sidebar.markdown("### 🧮 Risk Model")
+risk_model_ui = st.sidebar.selectbox("Experimental Risk Model", ["Linear", "Interaction", "Persistence"], index=["Linear", "Interaction", "Persistence"].index(config.RISK_MODEL), label_visibility="collapsed")
 st.sidebar.markdown("---")
 w_d = st.sidebar.number_input("Density Weight ($w_1$)", 0.0, 1.0, config.WEIGHT_DENSITY, 0.05)
 w_c = st.sidebar.number_input("Congestion Weight ($w_2$)", 0.0, 1.0, config.WEIGHT_CONGESTION, 0.05)
@@ -86,7 +95,15 @@ if start_btn and abs((w_d + w_c + w_t) - 1.0) <= 1e-5:
     config.GRID_SIZE = (grid_rows, grid_cols)
     config.DISABLED_ZONES = [z.strip() for z in disabled_zones_str.split(",") if z.strip()]
     
-    video_stream = VideoStream(config.VIDEO_SOURCE)
+    active_video_path = config.VIDEO_SOURCE
+    if upload_option == "Live Webcam":
+        active_video_path = 0
+    elif upload_option == "Upload CCTV Video" and uploaded_file is not None:
+        tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+        tfile.write(uploaded_file.read())
+        active_video_path = tfile.name
+        
+    video_stream = VideoStream(active_video_path)
     
     pipeline = CrowdSafetyPipeline(video_resolution=(video_stream.width, video_stream.height))
     st.session_state['pipeline_history'] = pipeline.history
@@ -137,51 +154,54 @@ if start_btn and abs((w_d + w_c + w_t) - 1.0) <= 1e-5:
                 state_color = "#00cc66"
                 
             telemetry_html = f"""
-            <div style="background-color: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #444; color: #eee;">
-                <h4 style="margin: 0; color: #aaa; text-align: center;">Displaying Max Risk: {highest_risk_zone_name}</h4>
-                <p style="margin: 2px 0 0 0; color: #666; text-align: center; font-size: 0.8em;">Engine: {config.RISK_MODEL}</p>
-                <h3 style="margin-top: 10px; text-align: center; color: {color_hex}; letter-spacing: 2px;">{cat.upper()}</h3>
-                <h4 style="margin-top: 5px; text-align: center; color: {state_color};">STATE: {congestion_state}</h4>
-                <h1 style="text-align: center; margin-bottom: 20px; color: {color_hex}; font-size: 3em;">{risk:.1f}</h1>
-                <table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Detected Entities</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec['D_raw_z[n]']}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Density D_z[n]</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec['D_smoothed_z[n]']:.1f}%</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Motion M_z[n] (Mean, Med)</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec['M_raw_z[n]']:.2f}, {rec.get('M_median_z[n]', 0.0):.2f}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Dir. Consistency</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec.get('Dir_Consistency_z[n]', 0.0):.2f}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Dominant Direction</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec.get('Dominant_Dir_z[n]', 0.0):.0f}°</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0; color: #ffeb3b;"><b>Movement Anomalies</b></td>
-                        <td style="text-align: right; padding: 12px 0; color: #ffeb3b;">{rec.get('Abnormal_Movement_Indicators', 'None')}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding: 12px 0;"><b>Tracked Speed (px/f)</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec.get('Tracked_Speed_z[n]', 0.0):.2f}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #333; background-color: rgba(255, 0, 0, 0.1);">
-                        <td style="padding: 12px 0; color: #ff5555;"><b>⚠️ Suffocation Risk</b></td>
-                        <td style="text-align: right; padding: 12px 0; color: #ff5555; font-weight: bold;">{rec.get('Suffocation_Risk_z[n]', 0.0):.1f}%</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 0;"><b>Duration T_z[n]</b></td>
-                        <td style="text-align: right; padding: 12px 0;">{rec['T_z[n]']:.1f}%</td>
-                    </tr>
-                </table>
-                <p style="text-align: center; color: #888; margin-top: 15px;">Processing FPS: {fps:.1f}</p>
+            <div style="background: linear-gradient(145deg, #111827, #1f2937); padding: 25px; border-radius: 16px; border: 1px solid {color_hex}40; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); color: #eee; font-family: 'Inter', sans-serif;">
+                <h4 style="margin: 0; color: #9ca3af; text-align: center; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85em;">Selected Zone: <span style="color: #fff;">{highest_risk_zone_name}</span></h4>
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="font-size: 0.85em; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px;">Overall Risk Level</div>
+                    <h1 style="margin: 5px 0; color: {color_hex}; font-size: 4.5em; text-shadow: 0 0 20px {color_hex}60; line-height: 1;">{risk:.1f}</h1>
+                    <h3 style="margin: 0; color: {color_hex}; letter-spacing: 3px; text-transform: uppercase; font-size: 1.2em;">{cat}</h3>
+                    <div style="margin-top: 12px; display: inline-block; padding: 6px 16px; border-radius: 20px; background-color: {state_color}15; color: {state_color}; border: 1px solid {state_color}40; font-size: 0.8em; font-weight: bold; letter-spacing: 1px;">STATE: {congestion_state}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #3b82f6;">
+                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Density $D_z[n]$</div>
+                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['D_smoothed_z[n]']:.1f}%</div>
+                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Count: {rec['D_raw_z[n]']}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #f59e0b;">
+                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Congestion $C_z[n]$</div>
+                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['C_smoothed_z[n]']:.1f}%</div>
+                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Motion: {rec['M_raw_z[n]']:.2f}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #8b5cf6;">
+                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Duration $T_z[n]$</div>
+                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['T_z[n]']:.1f}%</div>
+                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Threshold Exceeded</div>
+                    </div>
+                    <div style="background: rgba(239,68,68,0.08); padding: 15px; border-radius: 12px; border-left: 4px solid #ef4444;">
+                        <div style="font-size: 0.75em; color: #ef4444; text-transform: uppercase; font-weight: bold;">⚠️ Suffocation Risk</div>
+                        <div style="font-size: 1.6em; font-weight: bold; color: #ef4444; margin-top: 5px; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">{rec.get('Suffocation_Risk_z[n]', 0.0):.1f}%</div>
+                        <div style="font-size: 0.75em; color: #ef4444; opacity: 0.7; margin-top: 2px;">Compressive Asphyxia</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
+                        <span style="color: #9ca3af;">Average Speed</span> 
+                        <span style="color: #fff; font-weight: bold;">{rec.get('Tracked_Speed_z[n]', 0.0):.2f} px/f</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
+                        <span style="color: #9ca3af;">Dominant Flow</span> 
+                        <span style="color: #fff; font-weight: bold;">{rec.get('Dominant_Dir_z[n]', 0.0):.0f}° <span style="color: #6b7280; font-weight: normal;">(Cons: {rec.get('Dir_Consistency_z[n]', 0.0):.2f})</span></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; background: rgba(234, 179, 8, 0.08); padding: 8px 12px; border-radius: 6px;">
+                        <span style="color: #9ca3af;">Anomalies</span> 
+                        <span style="color: #eab308; font-weight: bold;">{rec.get('Abnormal_Movement_Indicators', 'None')}</span>
+                    </div>
+                </div>
+                
+                <p style="text-align: center; color: #4b5563; margin-top: 25px; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px;">Engine: {config.RISK_MODEL} &nbsp;•&nbsp; FPS: {fps:.1f}</p>
             </div>
             """
             telemetry_container.markdown(telemetry_html, unsafe_allow_html=True)
