@@ -24,22 +24,33 @@ new_video_source = None
 def process_video():
     global current_frame, current_telemetry, new_video_source
     
-    if not isinstance(config.VIDEO_SOURCE, int) and not os.path.exists(config.VIDEO_SOURCE):
-        print(f"Warning: Video {config.VIDEO_SOURCE} not found, falling back to webcam (0)")
-        current_source = 0
-    else:
-        current_source = config.VIDEO_SOURCE
-        
-    video_stream = VideoStream(current_source)
-    pipeline = CrowdSafetyPipeline(video_resolution=(video_stream.width, video_stream.height))
+    current_source = None
+    video_stream = None
+    pipeline = None
     
     while True:
         if new_video_source is not None:
-            video_stream.release()
+            if video_stream is not None:
+                video_stream.release()
             current_source = new_video_source
             video_stream = VideoStream(current_source)
             pipeline = CrowdSafetyPipeline(video_resolution=(video_stream.width, video_stream.height))
             new_video_source = None
+            
+        if video_stream is None:
+            # Display a waiting placeholder frame
+            import numpy as np
+            blank_image = np.zeros((720, 1280, 3), np.uint8)
+            text = "AWAITING VIDEO UPLOAD..."
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
+            text_x = (1280 - text_size[0]) // 2
+            text_y = (720 + text_size[1]) // 2
+            cv2.putText(blank_image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 150, 150), 2)
+            
+            ret, buffer = cv2.imencode('.jpg', blank_image)
+            current_frame = buffer.tobytes()
+            time.sleep(0.1)
+            continue
             
         data = video_stream.read_frame()
         if data is None:
