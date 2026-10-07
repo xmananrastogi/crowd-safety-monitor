@@ -2,7 +2,7 @@ import cv2
 import asyncio
 import time
 import uvicorn
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, UploadFile, File
 from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +10,8 @@ import config
 from app.pipeline import CrowdSafetyPipeline
 from core.video import VideoStream
 import threading
+import tempfile
+import os
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -17,19 +19,33 @@ templates = Jinja2Templates(directory="templates")
 # Globals to share state between background thread and FastAPI routes
 current_frame = None
 current_telemetry = {}
+new_video_source = None
 
 def process_video():
-    global current_frame, current_telemetry
+    global current_frame, current_telemetry, new_video_source
     
-    video_stream = VideoStream(config.VIDEO_SOURCE)
+    if not isinstance(config.VIDEO_SOURCE, int) and not os.path.exists(config.VIDEO_SOURCE):
+        print(f"Warning: Video {config.VIDEO_SOURCE} not found, falling back to webcam (0)")
+        current_source = 0
+    else:
+        current_source = config.VIDEO_SOURCE
+        
+    video_stream = VideoStream(current_source)
     pipeline = CrowdSafetyPipeline(video_resolution=(video_stream.width, video_stream.height))
     
     while True:
+        if new_video_source is not None:
+            video_stream.release()
+            current_source = new_video_source
+            video_stream = VideoStream(current_source)
+            pipeline = CrowdSafetyPipeline(video_resolution=(video_stream.width, video_stream.height))
+            new_video_source = None
+            
         data = video_stream.read_frame()
         if data is None:
             # Loop video for the demo
             video_stream.release()
-            video_stream = VideoStream(config.VIDEO_SOURCE)
+            video_stream = VideoStream(current_source)
             continue
             
         results = pipeline.process_frame(data['frame'], data['frame_number'], data['timestamp_ms'])
@@ -40,9 +56,6 @@ def process_video():
         frame = data['frame']
         frame = pipeline.zone_manager.draw_zones(frame)
         frame = pipeline.detector.draw_boxes(frame, results['global_boxes'], results['global_ids'], results['global_confidences'])
-        
-        # High tech HUD effect on the video feed
-        cv2.putText(frame, "OMNI-EYE SECURE LINK ACTIVE", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         current_frame = buffer.tobytes()
@@ -96,5 +109,16 @@ async def index(request: Request):
     """Serves the main HUD."""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.post("/upload")
+async def upload_video(file: UploadFile = File(...)):
+    global new_video_source
+    tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+    content = await file.read()
+    tfile.write(content)
+    tfile.close()
+    
+    new_video_source = tfile.name
+    return {"status": "success", "filename": file.filename}
+
 if __name__ == "__main__":
-    uvicorn.run("fastapi_app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("fastapi_app:app", host="0.0.0.0", port=8080, reload=True)

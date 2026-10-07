@@ -2,124 +2,143 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OMNI-EYE HUD</title>
+    <title>Crowd Safety Monitor</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #050505;
-            color: #00ff41;
-            font-family: 'Share Tech Mono', monospace;
-            overflow: hidden;
+            background-color: #0f1115;
+            color: #e5e7eb;
+            font-family: 'Inter', sans-serif;
             margin: 0;
-            background-image: 
-                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
         }
-        .scanline {
-            width: 100%;
-            height: 100px;
-            z-index: 9999;
-            position: absolute;
-            pointer-events: none;
-            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,255,65,0.1) 50%, rgba(0,0,0,0) 100%);
-            opacity: 0.1;
-            animation: scanline 8s linear infinite;
+        .panel {
+            background: rgba(31, 34, 43, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
         }
-        @keyframes scanline {
-            0% { top: -100px; }
-            100% { top: 100%; }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            transition: all 0.2s;
         }
-        .hud-border {
-            border: 1px solid rgba(0, 255, 65, 0.3);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1), inset 0 0 20px rgba(0, 255, 65, 0.05);
-            background: rgba(0, 10, 0, 0.6);
-            backdrop-filter: blur(4px);
-        }
-        .flicker {
-            animation: flicker 4s infinite;
-        }
-        @keyframes flicker {
-            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
-            20%, 24%, 55% { opacity: 0.5; }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
-<body class="h-screen w-screen p-4 flex flex-col gap-4">
-    <div class="scanline"></div>
-    
+<body class="h-screen w-screen p-6 flex flex-col gap-6">
     <!-- HEADER -->
-    <header class="hud-border p-4 flex justify-between items-center h-16">
+    <header class="flex justify-between items-center h-16 panel px-6">
         <div class="flex items-center gap-4">
-            <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            <h1 class="text-2xl tracking-[0.2em] flicker">OMNI-EYE // TACTICAL_CROWD_MONITOR</h1>
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30">CS</div>
+            <div>
+                <h1 class="text-xl font-semibold tracking-tight text-white">Crowd Safety Monitor</h1>
+                <p class="text-xs text-gray-400">Enterprise Video Analytics Platform</p>
+            </div>
         </div>
-        <div class="text-sm tracking-widest text-green-700">SYS.VER.2.0.4 // SECURE_LINK</div>
+        
+        <!-- UPLOAD SECTION -->
+        <div class="flex items-center gap-4">
+            <span id="upload_status" class="text-xs text-gray-400 font-medium"></span>
+            <label class="glass-btn px-4 py-2 cursor-pointer text-sm font-medium flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Upload Video Feed
+                <input type="file" id="video_upload" class="hidden" accept=".mp4,.avi,.mov" onchange="uploadVideo()">
+            </label>
+        </div>
     </header>
 
     <!-- MAIN CONTENT -->
-    <div class="flex-1 flex gap-4 h-[calc(100vh-6rem)]">
+    <div class="flex-1 flex gap-6 h-[calc(100vh-8rem)]">
         
         <!-- VIDEO FEED (LEFT) -->
-        <div class="hud-border flex-1 flex flex-col relative">
-            <div class="absolute top-4 left-4 z-10 bg-black/50 px-2 py-1 border border-green-500/50 text-xs tracking-widest">
-                CAM_01 // MAIN_CONCOURSE
+        <div class="flex-1 panel flex flex-col overflow-hidden relative group">
+            <div class="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-xs font-medium flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                LIVE FEED
             </div>
-            <!-- Crosshairs -->
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-green-500/20 rounded-full pointer-events-none"></div>
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-[1px] bg-green-500/20 pointer-events-none"></div>
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1px] h-40 bg-green-500/20 pointer-events-none"></div>
             
-            <img src="/video_feed" class="w-full h-full object-cover opacity-90" alt="CCTV Feed">
+            <img src="/video_feed" class="w-full h-full object-contain bg-black/40" alt="CCTV Feed">
         </div>
 
         <!-- TELEMETRY (RIGHT) -->
-        <div class="hud-border w-[28rem] p-6 flex flex-col gap-6 overflow-hidden">
-            <div class="text-xs tracking-[0.3em] border-b border-green-500/30 pb-2">SYS.TELEMETRY_DATALINK</div>
+        <div class="w-[380px] panel p-6 flex flex-col gap-6 overflow-hidden">
+            <h2 class="text-sm font-semibold tracking-wide text-gray-400 uppercase border-b border-white/5 pb-3">Real-time Telemetry</h2>
             
-            <div class="flex flex-col items-center justify-center py-4">
-                <div class="text-sm tracking-widest text-green-700 mb-2">THREAT_LEVEL</div>
-                <div id="risk_score" class="text-7xl font-bold tracking-tighter text-green-500 drop-shadow-[0_0_15px_rgba(0,255,65,0.8)]">0.0</div>
-                <div id="risk_cat" class="text-xl tracking-[0.2em] mt-2 text-green-500">[SAFE]</div>
-                <div id="state_code" class="mt-4 px-4 py-1 border border-dashed border-green-500 text-xs tracking-widest transition-colors duration-300">STATUS: NORMAL</div>
+            <div class="flex flex-col items-center justify-center py-6 bg-black/20 rounded-xl border border-white/5">
+                <div class="text-sm font-medium text-gray-400 mb-2">Overall Risk Score</div>
+                <div id="risk_score" class="text-7xl font-bold tracking-tight text-white transition-colors duration-300">0.0</div>
+                <div id="risk_cat" class="text-sm font-semibold tracking-wider mt-3 px-3 py-1 rounded-full bg-white/10 text-white transition-colors duration-300">SAFE</div>
             </div>
 
-            <div class="flex flex-col gap-4 text-sm mt-4 tracking-wider">
-                <div class="flex justify-between border-b border-green-500/20 pb-1">
-                    <span>> SYS.DENSITY</span>
-                    <span id="density" class="text-white">0.0%</span>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
+                    <div class="text-xs text-gray-400 mb-1">Density Level</div>
+                    <div id="density" class="text-xl font-semibold text-white">0.0%</div>
                 </div>
-                <div class="flex justify-between border-b border-green-500/20 pb-1">
-                    <span>> SYS.CONGESTION</span>
-                    <span id="congestion" class="text-white">0.0%</span>
+                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
+                    <div class="text-xs text-gray-400 mb-1">Congestion</div>
+                    <div id="congestion" class="text-xl font-semibold text-white">0.0%</div>
                 </div>
-                <div class="flex justify-between border-b border-green-500/20 pb-1">
-                    <span>> SYS.DURATION</span>
-                    <span id="duration" class="text-white">0.0%</span>
+                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
+                    <div class="text-xs text-gray-400 mb-1">Duration</div>
+                    <div id="duration" class="text-xl font-semibold text-white">0.0%</div>
                 </div>
-                <div class="flex justify-between border-b border-green-500/20 pb-1">
-                    <span>> VECTOR.SPEED</span>
-                    <span id="speed" class="text-white">0.0 px/f</span>
-                </div>
-                <div class="flex justify-between border-b border-green-500/20 pb-1 text-yellow-500">
-                    <span>> ANOMALY.DETECT</span>
-                    <span id="anomaly">NONE</span>
+                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
+                    <div class="text-xs text-gray-400 mb-1">Avg Speed</div>
+                    <div id="speed" class="text-xl font-semibold text-white">0.0 px/f</div>
                 </div>
             </div>
 
-            <div id="asphyxia_box" class="mt-auto border border-green-500/30 bg-green-500/5 p-4 text-center transition-colors duration-300">
-                <div class="text-xs tracking-[0.2em] mb-1">ASPHYXIA_RISK</div>
-                <div id="asphyxia" class="text-3xl text-white">0.0%</div>
+            <div id="asphyxia_box" class="mt-auto rounded-xl border border-white/5 bg-black/20 p-5 transition-all duration-300">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-sm font-medium text-gray-300">Compressive Asphyxia Risk</div>
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div id="asphyxia" class="text-3xl font-bold text-white">0.0%</div>
+                    <div id="asphyxia_status" class="text-xs font-medium text-gray-400 mb-1">Normal</div>
+                </div>
             </div>
             
-            <div id="footer_stats" class="text-[0.6rem] text-green-700 text-center tracking-widest mt-2">
-                [ AWAITING DATALINK... ]
+            <div id="footer_stats" class="text-[0.65rem] text-gray-500 text-center uppercase tracking-widest mt-2 border-t border-white/5 pt-4">
+                Connecting to telemetry stream...
             </div>
         </div>
     </div>
 
     <script>
+        async function uploadVideo() {
+            const fileInput = document.getElementById('video_upload');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const statusText = document.getElementById('upload_status');
+            statusText.innerText = "Processing video...";
+            statusText.className = "text-xs text-blue-400 font-medium animate-pulse";
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if(result.status === "success") {
+                    statusText.innerText = file.name;
+                    statusText.className = "text-xs text-green-400 font-medium";
+                }
+            } catch (err) {
+                statusText.innerText = "Upload failed";
+                statusText.className = "text-xs text-red-400 font-medium";
+            }
+        }
+
         const ws = new WebSocket("ws://" + window.location.host + "/ws");
         
         ws.onmessage = function(event) {
@@ -129,50 +148,47 @@
             // Elements
             const riskEl = document.getElementById("risk_score");
             const catEl = document.getElementById("risk_cat");
-            const stateEl = document.getElementById("state_code");
             const asphyxiaBox = document.getElementById("asphyxia_box");
             
             // Update values
             riskEl.innerText = (data['R_z[n]'] || 0).toFixed(1);
-            catEl.innerText = "[" + (data['Risk_Category'] || "SAFE").toUpperCase() + "]";
-            stateEl.innerText = "STATUS: " + (data['Congestion_State'] || "NORMAL");
+            catEl.innerText = (data['Risk_Category'] || "SAFE").toUpperCase();
             
             document.getElementById("density").innerText = (data['D_smoothed_z[n]'] || 0).toFixed(1) + "%";
             document.getElementById("congestion").innerText = (data['C_smoothed_z[n]'] || 0).toFixed(1) + "%";
             document.getElementById("duration").innerText = (data['T_z[n]'] || 0).toFixed(1) + "%";
             document.getElementById("speed").innerText = (data['Tracked_Speed_z[n]'] || 0).toFixed(2) + " px/f";
-            document.getElementById("anomaly").innerText = data['Abnormal_Movement_Indicators'] || "NONE";
             
             const asphyxiaRisk = data['Suffocation_Risk_z[n]'] || 0;
             document.getElementById("asphyxia").innerText = asphyxiaRisk.toFixed(1) + "%";
             
-            document.getElementById("footer_stats").innerText = "[ FPS: " + (data['fps'] || 0).toFixed(1) + " | ZONE: " + data['zone'] + " ]";
+            document.getElementById("footer_stats").innerText = "FPS: " + (data['fps'] || 0).toFixed(1) + "  •  ACTIVE ZONE: " + data['zone'];
             
             // Dynamic Styling based on Risk Category
-            let color = "#00ff41"; // green
-            let rgb = "0, 255, 65";
+            let color = "#10b981"; // emerald-500
+            let bgClass = "bg-emerald-500/20 text-emerald-400";
+            
             if (data['Risk_Category'] === "High Risk") {
-                color = "#ff003c";
-                rgb = "255, 0, 60";
+                color = "#ef4444"; // red-500
+                bgClass = "bg-red-500/20 text-red-400";
             } else if (data['Risk_Category'] === "Warning") {
-                color = "#ffe600";
-                rgb = "255, 230, 0";
+                color = "#f59e0b"; // amber-500
+                bgClass = "bg-amber-500/20 text-amber-400";
             }
             
             riskEl.style.color = color;
-            riskEl.style.filter = `drop-shadow(0 0 15px rgba(${rgb}, 0.8))`;
-            catEl.style.color = color;
-            stateEl.style.color = color;
-            stateEl.style.borderColor = color;
+            catEl.className = `text-xs font-semibold tracking-wider mt-3 px-3 py-1 rounded-full ${bgClass} transition-colors duration-300`;
             
             if (asphyxiaRisk > 50) {
-                asphyxiaBox.className = "mt-auto border border-red-500 bg-red-500/20 p-4 text-center animate-pulse";
-                document.getElementById("asphyxia").style.color = "#ff003c";
-                document.getElementById("asphyxia").style.textShadow = "0 0 10px rgba(255, 0, 60, 0.8)";
+                asphyxiaBox.className = "mt-auto rounded-xl border border-red-500/50 bg-red-500/10 p-5 transition-all duration-300";
+                document.getElementById("asphyxia").className = "text-3xl font-bold text-red-400";
+                document.getElementById("asphyxia_status").innerText = "CRITICAL WARNING";
+                document.getElementById("asphyxia_status").className = "text-xs font-bold text-red-400 mb-1 animate-pulse";
             } else {
-                asphyxiaBox.className = "mt-auto border border-green-500/30 bg-green-500/5 p-4 text-center";
-                document.getElementById("asphyxia").style.color = "white";
-                document.getElementById("asphyxia").style.textShadow = "none";
+                asphyxiaBox.className = "mt-auto rounded-xl border border-white/5 bg-black/20 p-5 transition-all duration-300";
+                document.getElementById("asphyxia").className = "text-3xl font-bold text-white";
+                document.getElementById("asphyxia_status").innerText = "Normal";
+                document.getElementById("asphyxia_status").className = "text-xs font-medium text-gray-400 mb-1";
             }
         };
     </script>

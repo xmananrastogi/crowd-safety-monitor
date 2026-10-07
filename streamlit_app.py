@@ -20,30 +20,57 @@ st.set_page_config(page_title="Crowd Safety CCTV v2", layout="wide", initial_sid
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
+    /* Terminal Theme */
+    .stApp {
+        background-color: #020202;
+        background-image: 
+            linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+    
     /* Reduce top padding */
     .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
+        font-family: 'Share Tech Mono', monospace !important;
     }
     
     /* Premium UI overrides */
     h1 {
         text-align: center;
-        background: -webkit-linear-gradient(45deg, #3b82f6, #8b5cf6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3em !important;
-        margin-bottom: 30px !important;
+        color: #00ff41 !important;
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        font-size: 2.5em !important;
+        margin-bottom: 20px !important;
+        font-family: 'Share Tech Mono', monospace !important;
+        letter-spacing: 2px;
+    }
+    h2, h3, h4, p, label, span {
+        font-family: 'Share Tech Mono', monospace !important;
+    }
+    
+    /* Scanlines effect */
+    .scanlines {
+        position: fixed;
+        top: 0; left: 0; width: 100vw; height: 100vh;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background-size: 100% 2px, 3px 100%;
+        pointer-events: none;
+        z-index: 9999;
     }
 </style>
+<div class="scanlines"></div>
 """, unsafe_allow_html=True)
 
-st.title("🛡️ Crowd Safety Monitoring System (Multi-Zone)")
+st.title("🌐 OMNI-EYE: CROWD SAFETY PROTOCOL")
 
 # --- SIDEBAR CONFIGURATION ---
 st.sidebar.header("⚙️ Configuration")
@@ -87,8 +114,8 @@ with st.sidebar.expander("🧪 Experimental Modules", expanded=False):
 
 st.sidebar.markdown("---")
 
-start_btn = st.sidebar.button("▶️ Start CCTV Feed", type="primary")
-stop_btn = st.sidebar.button("⏹️ Stop Feed")
+start_btn = st.sidebar.button("⚡ ENGAGE OMNI-EYE UPLINK", type="primary")
+stop_btn = st.sidebar.button("🛑 SEVER CONNECTION")
 
 tab_cctv, tab_analysis = st.tabs(["📷 CCTV Monitor", "📚 Signals & Systems Analysis"])
 
@@ -96,11 +123,11 @@ with tab_cctv:
     col_vid, col_panel = st.columns([7, 3])
 
     with col_vid:
-        st.markdown("### 📷 CAMERA 01: MAIN CONCOURSE")
+        st.markdown("<h3 style='color: #0f0;'>> CAMERA_01: MAIN_CONCOURSE // LIVE_FEED</h3>", unsafe_allow_html=True)
         video_placeholder = st.empty()
 
     with col_panel:
-        st.markdown("### 📡 SAFETY TELEMETRY")
+        st.markdown("<h3 style='color: #0f0;'>> SYS.TELEMETRY_DATALINK</h3>", unsafe_allow_html=True)
         ui_zone_selector = st.empty() # Placeholder for zone selection dropdown
         telemetry_container = st.empty()
         st.markdown("---")
@@ -169,69 +196,60 @@ if start_btn and abs((w_d + w_c + w_t) - 1.0) <= 1e-5:
             
             # --- 1. Compact Telemetry Panel ---
             if cat == "High Risk":
-                color_hex = "#ff4b4b"
+                color_hex = "#ff0000"
             elif cat == "Warning":
-                color_hex = "#ffa500"
+                color_hex = "#ffff00"
             else:
-                color_hex = "#00cc66"
+                color_hex = "#00ff00"
                 
             # State color coding
             if congestion_state == "PERSISTENT CONGESTION":
-                state_color = "#ff4b4b"
+                state_color = "#ff0000"
             elif congestion_state == "DEVELOPING":
-                state_color = "#ffa500"
+                state_color = "#ffff00"
             else:
-                state_color = "#00cc66"
+                state_color = "#00ff00"
                 
             telemetry_html = f"""
-            <div style="background: linear-gradient(145deg, #111827, #1f2937); padding: 25px; border-radius: 16px; border: 1px solid {color_hex}40; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); color: #eee; font-family: 'Inter', sans-serif;">
-                <h4 style="margin: 0; color: #9ca3af; text-align: center; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85em;">Selected Zone: <span style="color: #fff;">{highest_risk_zone_name}</span></h4>
+            <div style="background-color: rgba(0,20,0,0.8); padding: 25px; border: 1px solid {color_hex}; box-shadow: 0 0 15px {color_hex}40, inset 0 0 20px {color_hex}20; color: {color_hex}; font-family: 'Share Tech Mono', monospace; text-transform: uppercase;">
+                <div style="border-bottom: 1px solid {color_hex}; padding-bottom: 5px; margin-bottom: 15px; font-size: 0.9em; letter-spacing: 2px;">
+                    > SYSTEM.OVERRIDE... [OK]<br>
+                    > CONNECTING TO ZONE: <span style="color: #fff;">{highest_risk_zone_name}</span>
+                </div>
+                
                 <div style="text-align: center; margin: 20px 0;">
-                    <div style="font-size: 0.85em; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px;">Overall Risk Level</div>
-                    <h1 style="margin: 5px 0; color: {color_hex}; font-size: 4.5em; text-shadow: 0 0 20px {color_hex}60; line-height: 1;">{risk:.1f}</h1>
-                    <h3 style="margin: 0; color: {color_hex}; letter-spacing: 3px; text-transform: uppercase; font-size: 1.2em;">{cat}</h3>
-                    <div style="margin-top: 12px; display: inline-block; padding: 6px 16px; border-radius: 20px; background-color: {state_color}15; color: {state_color}; border: 1px solid {state_color}40; font-size: 0.8em; font-weight: bold; letter-spacing: 1px;">STATE: {congestion_state}</div>
+                    <div style="font-size: 1em; letter-spacing: 4px;">// THREAT LEVEL //</div>
+                    <h1 style="margin: 5px 0; color: {color_hex} !important; font-size: 5em !important; text-shadow: 0 0 20px {color_hex} !important; line-height: 1;">{risk:.1f}</h1>
+                    <h3 style="margin: 0; letter-spacing: 5px; font-size: 1.5em; text-shadow: 0 0 10px {color_hex};">[{cat}]</h3>
+                    <div style="margin-top: 15px; color: {state_color}; border: 1px dashed {state_color}; padding: 5px; letter-spacing: 2px;">STATUS_CODE: {congestion_state}</div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px;">
-                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #3b82f6;">
-                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Density $D_z[n]$</div>
-                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['D_smoothed_z[n]']:.1f}%</div>
-                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Count: {rec['D_raw_z[n]']}</div>
+                <div style="margin-top: 25px; font-size: 0.9em; line-height: 1.8;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted {color_hex}60;">
+                        <span>> SYS.DENSITY</span> <span style="color: #fff;">{rec['D_smoothed_z[n]']:.1f}% [{rec['D_raw_z[n]']} ENTITIES]</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #f59e0b;">
-                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Congestion $C_z[n]$</div>
-                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['C_smoothed_z[n]']:.1f}%</div>
-                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Motion: {rec['M_raw_z[n]']:.2f}</div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted {color_hex}60;">
+                        <span>> SYS.CONGESTION</span> <span style="color: #fff;">{rec['C_smoothed_z[n]']:.1f}% [M={rec['M_raw_z[n]']:.2f}]</span>
                     </div>
-                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border-left: 4px solid #8b5cf6;">
-                        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase;">Duration $T_z[n]$</div>
-                        <div style="font-size: 1.6em; font-weight: bold; color: #fff; margin-top: 5px;">{rec['T_z[n]']:.1f}%</div>
-                        <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;">Threshold Exceeded</div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted {color_hex}60;">
+                        <span>> SYS.DURATION</span> <span style="color: #fff;">{rec['T_z[n]']:.1f}%</span>
                     </div>
-                    <div style="background: rgba(239,68,68,0.08); padding: 15px; border-radius: 12px; border-left: 4px solid #ef4444;">
-                        <div style="font-size: 0.75em; color: #ef4444; text-transform: uppercase; font-weight: bold;">⚠️ Suffocation Risk</div>
-                        <div style="font-size: 1.6em; font-weight: bold; color: #ef4444; margin-top: 5px; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">{rec.get('Suffocation_Risk_z[n]', 0.0):.1f}%</div>
-                        <div style="font-size: 0.75em; color: #ef4444; opacity: 0.7; margin-top: 2px;">Compressive Asphyxia</div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted {color_hex}60;">
+                        <span>> VECTOR.SPEED</span> <span style="color: #fff;">{rec.get('Tracked_Speed_z[n]', 0.0):.2f} PX/F</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted {color_hex}60; color: #ff0;">
+                        <span>> ANOMALY.DETECT</span> <span>{rec.get('Abnormal_Movement_Indicators', 'NONE')}</span>
                     </div>
                 </div>
                 
-                <div style="margin-top: 25px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
-                        <span style="color: #9ca3af;">Average Speed</span> 
-                        <span style="color: #fff; font-weight: bold;">{rec.get('Tracked_Speed_z[n]', 0.0):.2f} px/f</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
-                        <span style="color: #9ca3af;">Dominant Flow</span> 
-                        <span style="color: #fff; font-weight: bold;">{rec.get('Dominant_Dir_z[n]', 0.0):.0f}° <span style="color: #6b7280; font-weight: normal;">(Cons: {rec.get('Dir_Consistency_z[n]', 0.0):.2f})</span></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; background: rgba(234, 179, 8, 0.08); padding: 8px 12px; border-radius: 6px;">
-                        <span style="color: #9ca3af;">Anomalies</span> 
-                        <span style="color: #eab308; font-weight: bold;">{rec.get('Abnormal_Movement_Indicators', 'None')}</span>
-                    </div>
+                <div style="margin-top: 20px; background: rgba(255,0,0,0.15); border: 1px solid #f00; padding: 10px; text-align: center; color: #f00;">
+                    <div style="letter-spacing: 3px; font-weight: bold;">!! ASPHYXIA_RISK !!</div>
+                    <div style="font-size: 1.8em; text-shadow: 0 0 10px #f00;">{rec.get('Suffocation_Risk_z[n]', 0.0):.1f}%</div>
                 </div>
                 
-                <p style="text-align: center; color: #4b5563; margin-top: 25px; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px;">Engine: {config.RISK_MODEL} &nbsp;•&nbsp; FPS: {fps:.1f}</p>
+                <div style="margin-top: 20px; font-size: 0.7em; opacity: 0.7; text-align: center; letter-spacing: 1px;">
+                    [ FPS: {fps:.1f} | ENGINE: {config.RISK_MODEL} ]
+                </div>
             </div>
             """
             telemetry_container.markdown(telemetry_html, unsafe_allow_html=True)
