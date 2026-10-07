@@ -17,6 +17,32 @@ from app.pipeline import CrowdSafetyPipeline
 
 st.set_page_config(page_title="Crowd Safety CCTV v2", layout="wide", initial_sidebar_state="expanded")
 
+# --- CUSTOM CSS ---
+st.markdown("""
+<style>
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Reduce top padding */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Premium UI overrides */
+    h1 {
+        text-align: center;
+        background: -webkit-linear-gradient(45deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 3em !important;
+        margin-bottom: 30px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🛡️ Crowd Safety Monitoring System (Multi-Zone)")
 
 # --- SIDEBAR CONFIGURATION ---
@@ -31,31 +57,35 @@ if upload_option == "Upload CCTV Video":
 st.sidebar.markdown("### 🧮 Risk Model")
 risk_model_ui = st.sidebar.selectbox("Experimental Risk Model", ["Linear", "Interaction", "Persistence"], index=["Linear", "Interaction", "Persistence"].index(config.RISK_MODEL), label_visibility="collapsed")
 st.sidebar.markdown("---")
-w_d = st.sidebar.number_input("Density Weight ($w_1$)", 0.0, 1.0, config.WEIGHT_DENSITY, 0.05)
-w_c = st.sidebar.number_input("Congestion Weight ($w_2$)", 0.0, 1.0, config.WEIGHT_CONGESTION, 0.05)
-w_t = st.sidebar.number_input("Duration Weight ($w_3$)", 0.0, 1.0, config.WEIGHT_DURATION, 0.05)
 
-if abs((w_d + w_c + w_t) - 1.0) > 1e-5:
-    st.sidebar.error("Weights must sum exactly to 1.0!")
+with st.sidebar.expander("🎛️ Algorithm Tuning", expanded=False):
+    w_d = st.number_input("Density Weight ($w_1$)", 0.0, 1.0, config.WEIGHT_DENSITY, 0.05)
+    w_c = st.number_input("Congestion Weight ($w_2$)", 0.0, 1.0, config.WEIGHT_CONGESTION, 0.05)
+    w_t = st.number_input("Duration Weight ($w_3$)", 0.0, 1.0, config.WEIGHT_DURATION, 0.05)
+    
+    if abs((w_d + w_c + w_t) - 1.0) > 1e-5:
+        st.error("Weights must sum exactly to 1.0!")
+        
+    filter_window = st.slider("Moving-Average Window ($N$)", 1, 60, config.MOVING_AVERAGE_WINDOW)
+    ewma_alpha = st.slider("EWMA Alpha ($\\alpha$)", 0.01, 1.0, config.EWMA_ALPHA, 0.01)
+    thresh_d = st.slider("Density Threshold ($\tau_D$)", 0.0, 100.0, config.DURATION_THRESHOLD_DENSITY)
+    thresh_c = st.slider("Congestion Threshold ($\tau_C$)", 0.0, 100.0, config.DURATION_THRESHOLD_CONGESTION)
+    persistence_limit = st.slider("State Machine Persistence (frames)", 10, 300, config.PERSISTENCE_LIMIT_FRAMES)
+    risk_alert_persistence = st.slider("Risk Alert Persistence (frames)", 1, 60, config.RISK_ALERT_PERSISTENCE)
 
-filter_window = st.sidebar.slider("Moving-Average Window ($N$)", 1, 60, config.MOVING_AVERAGE_WINDOW)
-ewma_alpha = st.sidebar.slider("EWMA Alpha ($\\alpha$)", 0.01, 1.0, config.EWMA_ALPHA, 0.01)
-thresh_d = st.sidebar.slider("Density Threshold ($\tau_D$)", 0.0, 100.0, config.DURATION_THRESHOLD_DENSITY)
-thresh_c = st.sidebar.slider("Congestion Threshold ($\tau_C$)", 0.0, 100.0, config.DURATION_THRESHOLD_CONGESTION)
-persistence_limit = st.sidebar.slider("State Machine Persistence (frames)", 10, 300, config.PERSISTENCE_LIMIT_FRAMES)
-risk_alert_persistence = st.sidebar.slider("Risk Alert Persistence (frames)", 1, 60, config.RISK_ALERT_PERSISTENCE)
+with st.sidebar.expander("📐 Spatial Zones (Grid)", expanded=False):
+    grid_rows = st.number_input("Grid Rows", 1, 10, config.GRID_SIZE[0])
+    grid_cols = st.number_input("Grid Columns", 1, 10, config.GRID_SIZE[1])
+    disabled_zones_str = st.text_input("Disabled Zones (comma-separated)", ", ".join(config.DISABLED_ZONES))
 
-st.sidebar.markdown("### Spatial Zones (Grid)")
-grid_rows = st.sidebar.number_input("Grid Rows", 1, 10, config.GRID_SIZE[0])
-grid_cols = st.sidebar.number_input("Grid Columns", 1, 10, config.GRID_SIZE[1])
-disabled_zones_str = st.sidebar.text_input("Disabled Zones (comma-separated)", ", ".join(config.DISABLED_ZONES))
+with st.sidebar.expander("🎥 Rendering Options", expanded=False):
+    visualize_hsv = st.checkbox("Show Dense Flow HSV Heatmap", value=False)
 
-st.sidebar.markdown("### Rendering")
-visualize_hsv = st.sidebar.checkbox("Show Dense Flow HSV Heatmap", value=False)
+with st.sidebar.expander("🧪 Experimental Modules", expanded=False):
+    enable_anomaly = st.checkbox("Enable Statistical Anomaly Detector", value=config.ENABLE_ANOMALY_DETECTION)
+    st.info("💡 **Anomaly Limitations**: The Z-score anomaly detector mathematically assumes the first 10 seconds of video perfectly represent a 'Safe/Normal' baseline. If the video starts already congested, the baseline will be corrupted.")
 
-st.sidebar.markdown("### Experimental Modules")
-enable_anomaly = st.sidebar.checkbox("Enable Statistical Anomaly Detector", value=config.ENABLE_ANOMALY_DETECTION)
-st.sidebar.info("💡 **Anomaly Limitations**: The Z-score anomaly detector mathematically assumes the first 10 seconds of video perfectly represent a 'Safe/Normal' baseline. If the video starts already congested, the baseline will be corrupted.")
+st.sidebar.markdown("---")
 
 start_btn = st.sidebar.button("▶️ Start CCTV Feed", type="primary")
 stop_btn = st.sidebar.button("⏹️ Stop Feed")
