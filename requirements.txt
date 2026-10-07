@@ -6,3 +6,8 @@ numpy
 scipy
 streamlit
 matplotlib
+fastapi
+uvicorn
+websockets
+jinja2
+python-multipart
