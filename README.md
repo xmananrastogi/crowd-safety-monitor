@@ -13,23 +13,6 @@ An enterprise-grade, AI-driven surveillance dashboard designed to proactively de
 - **Density Heatmap & Flow Vectors**: Live Gaussian kernel heatmap (`[H]`) and Farnebäck Optical Flow motion vectors (`[F]`) burned onto the feed.
 - **Asphyxia & Crush Modeling**: Physics-calibrated velocity decay curve and time-integrated compressive asphyxia hazard index ($S_z[t]$).
 - **Post-Incident Audit Report**: One-click official session summary (`/report_page`) detailing temporal risk progression ($R_z[t]$), peak crowd metrics, asphyxia indices, auto-captured evidence gallery, and printable PDF audit dossier.
-- **Final Viva Presentation Decks**: Ready-to-present 14-slide widescreen presentation deck (`Crowd_Safety_Monitor_Final_Review.pptx`) and high-resolution PDF (`Crowd_Safety_Monitor_Final_Review.pdf`).
-
-## Project Team & Mentorship
-- **Student Authors**:
-  - **Kumar Prathmesh** (Reg. No: `24BEC0680`)
-  - **Manan Rastogi** (Reg. No: `24BML0004`)
-  - **Jayanth Anand** (Reg. No: `24BML0072`)
-- **Faculty Guide & Evaluator**:
-  - **Prof. / Dr. Jeeva Devakumar** (Faculty Guide & Evaluator)
-
-## Project Deliverable Generation
-
-The repository includes standalone Python generators to compile academic documentation and presentation materials on demand:
-
-- **Official Project-1 Report**: Run `python build_official_project_report_2026.py` to compile the calibrated report (`.docx` and `.pdf`).
-- **Evaluation Presentation**: Run `python build_evaluation_deck_and_paper.py` to build the 16:9 widescreen evaluation deck (`.pptx` and `.pdf`).
-- **Academic Research Paper**: Run `python generate_academic_paper.py` to render the single-column research paper (`.html`, `.pdf`, and `.md`).
 
 ## Tech Stack
 

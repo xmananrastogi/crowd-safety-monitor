@@ -10,3 +10,11 @@ data/
 *.docx
 Crowd_Safety_Monitor_Academic_Paper.html
 Crowd_Safety_Monitor_Academic_Paper.md
+
+# Generator scripts and presentation assets
+build_*.py
+generate_academic_paper.py
+generate_final_presentation.py
+capture_fresh_screenshots.py
+make_ppt.py
+assets/
