@@ -28,8 +28,14 @@ class MotionEstimator:
             self.prev_gray = gray
             return None
             
-        flow = cv2.calcOpticalFlowFarneback(
-            self.prev_gray, gray, None,
+        # Downsample 2x for 4x faster optical flow computation
+        h, w = gray.shape
+        scale = 0.5
+        small_prev = cv2.resize(self.prev_gray, (0, 0), fx=scale, fy=scale)
+        small_curr = cv2.resize(gray, (0, 0), fx=scale, fy=scale)
+        
+        flow_small = cv2.calcOpticalFlowFarneback(
+            small_prev, small_curr, None,
             pyr_scale=self.fb_params['pyr_scale'],
             levels=self.fb_params['levels'],
             winsize=self.fb_params['winsize'],
@@ -39,6 +45,8 @@ class MotionEstimator:
             flags=self.fb_params['flags']
         )
         self.prev_gray = gray
+        # Scale back flow vectors to original frame coordinates
+        flow = cv2.resize(flow_small, (w, h)) * (1.0 / scale)
         return flow
 
     def estimate_zone_motion(self, flow, mask, person_count, boxes=None):
@@ -96,9 +104,13 @@ class MotionEstimator:
         directional_consistency = float(np.sqrt(mean_x**2 + mean_y**2)) # 0.0 to 1.0
         dominant_direction = float(np.degrees(np.arctan2(mean_y, mean_x)) % 360)
         
-        # Congestion Estimate
-        motion_norm = min(mean_mag / self.max_expected_motion, 1.0)
-        congestion = (1.0 - motion_norm) * 100.0
+        # Congestion Estimate:
+        # Normal unobstructed pedestrian flow in CCTV is ~1.2 to 2.5 px/f.
+        # Congestion represents velocity decay toward zero (stagnation/lock).
+        # Normal walking (> 1.2 px/f) produces low congestion (< 30%).
+        # Motion arrest (< 0.3 px/f) produces high congestion (> 80%).
+        norm_v = min(mean_mag / 2.0, 1.0)
+        congestion = float(np.clip((1.0 - norm_v)**1.5 * 100.0, 0.0, 100.0))
             
         return {
             'mean_magnitude': mean_mag,

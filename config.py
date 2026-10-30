@@ -6,8 +6,8 @@ Configuration settings for the Crowd Safety Monitor.
 VIDEO_SOURCE = "data/sample_video.mp4"
 
 # Detection settings
-YOLO_MODEL = "yolov8n.pt"  # Using nano model for real-time speed
-CONFIDENCE_THRESHOLD = 0.3 # Confidence for person detection
+YOLO_MODEL = "yolov8s.pt"  # Using 'small' model for better accuracy in dense crowds
+CONFIDENCE_THRESHOLD = 0.2 # Lower threshold to catch more people in crowded scenes
 MAX_CAPACITY_PER_ZONE = 50 # Max expected people in a single zone
 
 # Grid and Spatial Zone Settings
@@ -33,7 +33,7 @@ FARNEBACK_PARAMS = {
     'poly_sigma': 1.2,
     'flags': 0
 }
-MAX_EXPECTED_MOTION = 5.0 # For congestion normalization
+MAX_EXPECTED_MOTION = 8.0 # Raised: normal walking generates ~3-6px flow; old value of 5 caused static groups to read as "high congestion"
 
 # Risk Equation Weights
 WEIGHT_DENSITY = 0.45
@@ -41,18 +41,20 @@ WEIGHT_CONGESTION = 0.35
 WEIGHT_DURATION = 0.20
 
 # Thresholds
-RISK_SAFE_MAX = 30
-RISK_WARN_MAX = 60
+RISK_SAFE_MAX = 35
+RISK_WARN_MAX = 65
 
 # Configurable Risk Engine Model
-# Options: "Linear", "Interaction", "Persistence"
-RISK_MODEL = "Linear"
+# "Linear" = alert on density alone (too sensitive for normal groups)
+# "Interaction" = requires BOTH high density AND low movement to alert (recommended)
+# "Persistence" = duration-based progressive escalation
+RISK_MODEL = "Interaction"
 MOVING_AVERAGE_WINDOW = 30
 # EWMA smoothing factor (0.0 to 1.0)
 EWMA_ALPHA = 0.1
 # Duration Settings
-DURATION_THRESHOLD_DENSITY = 75.0      # Experimental density % threshold to start counting duration
-DURATION_THRESHOLD_CONGESTION = 50.0   # Experimental congestion % threshold to start counting duration
+DURATION_THRESHOLD_DENSITY = 60.0      # Density % threshold to start counting duration
+DURATION_THRESHOLD_CONGESTION = 60.0   # Congestion % threshold to start counting duration
 MIN_DURATION_FRAMES = 30               # Minimum frames before duration becomes an active risk
 MAX_DURATION_FRAMES = 30 * 60          # 60 seconds at 30 FPS = 100% Duration score
 DURATION_DECAY_RATE = 2                # Rate at which the duration decays when conditions are safe
@@ -69,5 +71,6 @@ ENABLE_ANOMALY_DETECTION = True
 ANOMALY_BASELINE_FRAMES = 300          # 10 seconds at 30fps to calibrate normal baseline
 
 # Suffocation / Compressive Asphyxia Settings
-SUFFOCATION_MIN_DENSITY = 75.0         # Minimum density to even consider suffocation risk
-SUFFOCATION_MIN_CONGESTION = 75.0      # Minimum congestion to even consider suffocation risk
+# Only activates in genuine crush scenarios where people physically cannot move.
+SUFFOCATION_MIN_DENSITY = 55.0         # Minimum density to even consider suffocation risk
+SUFFOCATION_MIN_CONGESTION = 55.0      # Minimum congestion to even consider suffocation risk

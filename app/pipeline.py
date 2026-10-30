@@ -2,6 +2,7 @@ import csv
 import logging
 import os
 import time
+from collections import deque
 import config
 from core.video import VideoStream
 from core.spatial import ZoneManager
@@ -87,7 +88,7 @@ class CrowdSafetyPipeline:
             }
             
         self.history = []
-        self.tracking_history = []
+        self.tracking_history = deque(maxlen=2000)
 
     def process_frame(self, frame, frame_number, timestamp_ms):
         """

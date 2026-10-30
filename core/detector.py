@@ -7,7 +7,7 @@ from collections import defaultdict
 from ultralytics import YOLO
 
 class PersonDetector:
-    def __init__(self, model_path='yolov8n.pt', conf_thresh=0.3, max_trail_len=30):
+    def __init__(self, model_path='yolov8n.pt', conf_thresh=0.20, max_trail_len=30):
         """
         Initializes the YOLO object tracker.
         Args:
@@ -18,6 +18,15 @@ class PersonDetector:
         self.model = YOLO(model_path)
         self.conf_thresh = conf_thresh
         self.person_class_id = 0 
+        
+        # Hardware acceleration
+        import torch
+        if torch.backends.mps.is_available():
+            self.device = 'mps'
+        elif torch.cuda.is_available():
+            self.device = 'cuda'
+        else:
+            self.device = 'cpu'
         
         # Tracking history for visualization
         self.max_trail_len = max_trail_len
@@ -35,13 +44,14 @@ class PersonDetector:
             ids (list): List of unique tracking IDs.
             confidences (list): Confidence scores.
         """
-        # Run tracking using ByteTrack
+        # Run tracking using ByteTrack with hardware acceleration
         results = self.model.track(
             frame, 
             classes=[self.person_class_id], 
             conf=self.conf_thresh, 
             persist=True, 
             tracker="bytetrack.yaml", 
+            device=self.device,
             verbose=False
         )
         

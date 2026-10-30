@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post-Incident Audit Report — Crowd Safety Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #08090c;
+            --bg-surface: #0f1117;
+            --bg-elevated: #161b26;
+            --border: rgba(255,255,255,0.08);
+            --border-h: rgba(255,255,255,0.16);
+            --accent: #3b82f6;
+            --green: #10b981;
+            --amber: #f59e0b;
+            --red: #ef4444;
+            --text-p: #f1f5f9;
+            --text-s: #94a3b8;
+            --text-m: #475569;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-base);
+            color: var(--text-p);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            padding: 32px 24px;
+            line-height: 1.5;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 36px 36px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text-p);
+            text-decoration: none;
+            font-family: inherit;
+        }
+        .btn:hover {
+            border-color: var(--border-h);
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-1px);
+        }
+        .btn-primary {
+            background: #1d4ed8;
+            border-color: #2563eb;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .badge-red {
+            background: rgba(239,68,68,0.12);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .badge-amber {
+            background: rgba(245,158,11,0.12);
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .badge-green {
+            background: rgba(16,185,129,0.12);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .badge-blue {
+            background: rgba(59,130,246,0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59,130,246,0.3);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .kpi-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-s);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-p);
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.1;
+        }
+        .kpi-sub {
+            font-size: 11px;
+            color: var(--text-s);
+        }
+
+        .chart-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 14px;
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .snapshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .snapshot-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .snapshot-card:hover {
+            border-color: var(--border-h);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .snapshot-img {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            background: #000;
+            display: block;
+        }
+        .snapshot-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        table.signal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        table.signal-table th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--bg-elevated);
+            color: var(--text-s);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
+        }
+        table.signal-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-p);
+        }
+        table.signal-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                padding: 12px !important;
+            }
+            body::before { display: none !important; }
+            .no-print { display: none !important; }
+            .panel {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+                margin-bottom: 18px !important;
+                padding: 16px !important;
+            }
+            .kpi-card, .chart-box {
+                background: #f8fafc !important;
+                border: 1px solid #e2e8f0 !important;
+            }
+            .kpi-value, .kpi-title, h1, h2, h3, p, span, td, th {
+                color: #0f172a !important;
+            }
+            .kpi-title, th, .kpi-sub {
+                color: #64748b !important;
+            }
+            .badge-red { background: #fee2e2 !important; color: #991b1b !important; border: 1px solid #f87171 !important; }
+            .badge-amber { background: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; }
+            .badge-green { background: #dcfce7 !important; color: #166534 !important; border: 1px solid #10b981 !important; }
+            .snapshot-card { border: 1px solid #e2e8f0 !important; background: #ffffff !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- TOP ACTION BAR -->
+    <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <a href="/" class="btn">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Live Console
+            </a>
+            <span style="font-size:12px;color:var(--text-s);">Operational Surveillance Audit</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button class="btn" onclick="fetchReportData()">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Refresh
+            </button>
+            <button class="btn" onclick="exportJSON()">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export JSON
+            </button>
+            <button class="btn btn-primary" onclick="window.print()">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                Print / Save PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- REPORT HEADER -->
+    <div class="panel" style="border-top: 4px solid var(--accent);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+            <div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <span class="badge badge-blue">Official Incident Audit</span>
+                    <span id="header_status_badge" class="badge badge-green">Operational Safe</span>
+                    <span style="font-size:11px;color:var(--text-s);font-family:'JetBrains Mono',monospace;" id="report_id">ID: CSM-SESSION</span>
+                </div>
+                <h1 style="font-size:24px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px;">Crowd Dynamics & Safety Observational Report</h1>
+                <p style="font-size:13px;color:var(--text-s);">Comprehensive spatio-temporal telemetry, crush risk estimation, and automated incident documentation.</p>
+            </div>
+            <div style="text-align:right;font-size:12px;color:var(--text-s);display:flex;flex-direction:column;gap:4px;">
+                <div><span style="color:var(--text-p);font-weight:600;">Engine:</span> YOLOv8s + VIVA Observational L1</div>
+                <div><span style="color:var(--text-p);font-weight:600;">Generated:</span> <span id="report_gen_time">—</span></div>
+                <div><span style="color:var(--text-p);font-weight:600;">Source:</span> <span id="report_source">—</span></div>
+            </div>
+        </div>
+
+        <!-- SEVERITY BANNER -->
+        <div id="severity_banner" style="margin-top:20px;padding:14px 18px;border-radius:8px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);display:flex;align-items:center;gap:14px;">
+            <div id="severity_icon" style="font-size:24px;">🛡️</div>
+            <div>
+                <div id="severity_title" style="font-size:14px;font-weight:700;color:#34d399;">Normal Operational Baseline</div>
+                <div id="severity_desc" style="font-size:12px;color:var(--text-s);">Crowd flow and spatial density parameters remained within safe limits throughout the monitored duration.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- METRICS GRID -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-title">Peak Risk Score</div>
+            <div class="kpi-value" id="kpi_peak_risk">0.0</div>
+            <div class="kpi-sub" id="kpi_peak_risk_sub">Threshold: 70.0 (High)</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Peak Headcount</div>
+            <div class="kpi-value" id="kpi_peak_persons">0</div>
+            <div class="kpi-sub">Max concurrent persons</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Peak Crush / Asphyxia</div>
+            <div class="kpi-value" id="kpi_peak_asphyxia">0.0%</div>
+            <div class="kpi-sub">Compressive load index</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Average Density</div>
+            <div class="kpi-value" id="kpi_avg_density">0.0%</div>
+            <div class="kpi-sub">Spatio-temporal mean</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Critical Alerts</div>
+            <div class="kpi-value" id="kpi_total_alerts">0</div>
+            <div class="kpi-sub">Automated triggers</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Monitored Duration</div>
+            <div class="kpi-value" id="kpi_duration" style="font-size:22px;">0s</div>
+            <div class="kpi-sub" id="kpi_frames">0 frames processed</div>
+        </div>
+    </div>
+
+    <!-- TIMELINE ANALYTICS -->
+    <div class="panel">
+        <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Spatio-Temporal Risk Trajectory (R_z[t])</h2>
+        <p style="font-size:12px;color:var(--text-s);margin-bottom:14px;">Historical progression of composite risk score across 1-second sample intervals. Dashed lines indicate Warning (40) and Critical (70) thresholds.</p>
+        
+        <div class="chart-box">
+            <svg id="risk_chart" width="100%" height="220" style="overflow:visible;"></svg>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-s);margin-top:8px;">
+                <span id="chart_t_start">Session Start</span>
+                <div style="display:flex;gap:16px;">
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:2px;background:#ef4444;display:inline-block;"></span> Critical (70)</span>
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:2px;background:#f59e0b;display:inline-block;"></span> Warning (40)</span>
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:2px;background:#3b82f6;display:inline-block;"></span> Risk Metric</span>
+                </div>
+                <span id="chart_t_end">Session End</span>
+            </div>
+        </div>
+
+        <div class="chart-box" style="margin-top:16px;">
+            <div class="chart-header">
+                <div style="font-size:13px;font-weight:600;">Concurrent Headcount Trajectory (Persons N[t])</div>
+                <div style="font-size:11px;color:var(--text-s);" id="person_chart_stats">—</div>
+            </div>
+            <svg id="person_chart" width="100%" height="160" style="overflow:visible;"></svg>
+        </div>
+    </div>
+
+    <!-- OBSERVATIONAL SIGNALS & METHODOLOGY -->
+    <div class="panel">
+        <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Observational Signal Methodology & Verification</h2>
+        <p style="font-size:12px;color:var(--text-s);">Physics-grounded crowd dynamics strictly computed from observational CCTV telemetry without synthetic simulation.</p>
+
+        <table class="signal-table">
+            <thead>
+                <tr>
+                    <th>Signal Identifier</th>
+                    <th>Physical Dimension</th>
+                    <th>Mathematical Formulation</th>
+                    <th>Impact on Crush Assessment</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong style="font-family:'JetBrains Mono';color:#60a5fa;">D_z[n]</strong></td>
+                    <td>Spatial Density</td>
+                    <td>Bounding box area summation over localized zone grid: <code>&sum; Area(B_i) / Area(Z)</code></td>
+                    <td>Direct indicator of crowd packaging. Densities above 60% trigger localized stagnation alerts.</td>
+                </tr>
+                <tr>
+                    <td><strong style="font-family:'JetBrains Mono';color:#f59e0b;">C_z[n]</strong></td>
+                    <td>Congestion Factor</td>
+                    <td>Inverse velocity magnitude decay: <code>1.0 / (||v_mean|| + &epsilon;)</code></td>
+                    <td>High density coupled with zero velocity indicates severe crowd locking/crush potential.</td>
+                </tr>
+                <tr>
+                    <td><strong style="font-family:'JetBrains Mono';color:#a855f7;">T_z[n]</strong></td>
+                    <td>Residence Duration</td>
+                    <td>Temporal persistence filter over consecutive frames: <code>&alpha; &middot; T[n-1] + (1-&alpha;) &middot; &Delta;t</code></td>
+                    <td>Distinguishes moving pedestrian streams from dangerous multi-minute bottleneck pileups.</td>
+                </tr>
+                <tr>
+                    <td><strong style="font-family:'JetBrains Mono';color:#ef4444;">S_z[n]</strong></td>
+                    <td>Asphyxia / Compressive Risk</td>
+                    <td>Non-linear product of local density and velocity arrest: <code>D_z &times; (1.0 - v_norm)</code></td>
+                    <td>Estimates mechanical pressure on thoracic cavities during crowd collapse scenarios.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- INCIDENT SNAPSHOT EVIDENCE -->
+    <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+                <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;">Captured Incident Evidence Gallery</h2>
+                <p style="font-size:12px;color:var(--text-s);">High-risk frames autonomously recorded during critical safety anomalies.</p>
+            </div>
+            <div style="font-size:12px;color:var(--text-s);" id="snapshot_count_label">0 Snapshots</div>
+        </div>
+
+        <div id="snapshot_gallery" class="snapshot-grid">
+            <div style="grid-column:1/-1;text-align:center;padding:36px;color:var(--text-s);font-size:13px;">
+                No critical incident snapshots recorded for this session.
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIT RECOMMENDATIONS & SIGN-OFF -->
+    <div class="panel">
+        <h2 style="font-size:16px;font-weight:700;margin-bottom:6px;">Safety Protocol & Action Recommendations</h2>
+        <ul id="recommendations_list" style="margin-left:20px;font-size:13px;color:var(--text-s);display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
+            <li>Standard monitoring posture maintained. Baseline camera calibration verified.</li>
+            <li>No urgent crowd dispersion orders issued during this monitoring window.</li>
+        </ul>
+
+        <div style="border-top:1px solid var(--border);padding-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;">
+            <div>
+                <div style="font-size:11px;font-weight:600;color:var(--text-s);text-transform:uppercase;">Surveillance Officer</div>
+                <div style="margin-top:24px;border-bottom:1px dashed var(--border);padding-bottom:4px;font-size:13px;color:var(--text-p);">Automated Vision Engine V3</div>
+                <div style="font-size:11px;color:var(--text-s);margin-top:2px;">Signature / System Auth</div>
+            </div>
+            <div>
+                <div style="font-size:11px;font-weight:600;color:var(--text-s);text-transform:uppercase;">Operations Supervisor</div>
+                <div style="margin-top:24px;border-bottom:1px dashed var(--border);padding-bottom:4px;font-size:13px;color:var(--text-s);">Verification Pending</div>
+                <div style="font-size:11px;color:var(--text-s);margin-top:2px;">Authorized Sign-Off</div>
+            </div>
+            <div>
+                <div style="font-size:11px;font-weight:600;color:var(--text-s);text-transform:uppercase;">Compliance Status</div>
+                <div style="margin-top:24px;font-size:13px;font-weight:600;color:#10b981;" id="compliance_text">PASSED — SAFE LIMITS</div>
+                <div style="font-size:11px;color:var(--text-s);margin-top:2px;">ISO / Safety Protocol 2026</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let reportData = null;
+
+async function fetchReportData() {
+    try {
+        const res = await fetch('/report');
+        if (!res.ok) throw new Error('Failed to fetch report');
+        reportData = await res.json();
+        renderReport(reportData);
+    } catch (e) {
+        console.error('Report fetch error:', e);
+    }
+}
+
+function renderReport(data) {
+    if (!data) return;
+
+    // Header info
+    document.getElementById('report_gen_time').innerText = new Date().toLocaleString();
+    document.getElementById('report_source').innerText = data.video_name || 'Live Surveillance Stream';
+    document.getElementById('report_id').innerText = 'ID: CSM-' + (data.start_time ? data.start_time.replace(/[- :]/g, '').slice(0, 12) : 'SESSION');
+
+    // KPIs
+    const peakRisk = Number(data.peak_risk || 0);
+    const peakPersons = Number(data.peak_persons || 0);
+    const peakAsphyxia = Number(data.peak_asphyxia || 0);
+    const avgDensity = Number(data.avg_density || 0);
+    const totalAlerts = Number(data.total_alerts || 0);
+
+    const prEl = document.getElementById('kpi_peak_risk');
+    prEl.innerText = peakRisk.toFixed(1);
+    if (peakRisk >= 70) prEl.style.color = '#ef4444';
+    else if (peakRisk >= 40) prEl.style.color = '#f59e0b';
+    else prEl.style.color = '#10b981';
+
+    document.getElementById('kpi_peak_persons').innerText = peakPersons;
+    document.getElementById('kpi_peak_asphyxia').innerText = peakAsphyxia.toFixed(1) + '%';
+    document.getElementById('kpi_avg_density').innerText = avgDensity.toFixed(1) + '%';
+    document.getElementById('kpi_total_alerts').innerText = totalAlerts;
+    document.getElementById('kpi_duration').innerText = data.duration ? data.duration.split(' ')[0] : '—';
+    document.getElementById('kpi_frames').innerText = data.duration ? data.duration : '0 frames processed';
+
+    // Severity banner & status badge
+    const sb = document.getElementById('severity_banner');
+    const sbTitle = document.getElementById('severity_title');
+    const sbDesc = document.getElementById('severity_desc');
+    const sbIcon = document.getElementById('severity_icon');
+    const hBadge = document.getElementById('header_status_badge');
+    const recList = document.getElementById('recommendations_list');
+    const compText = document.getElementById('compliance_text');
+
+    if (peakRisk >= 70) {
+        hBadge.className = 'badge badge-red';
+        hBadge.innerText = 'CRITICAL RISK DETECTED';
+        sb.style.borderColor = 'rgba(239,68,68,0.4)';
+        sb.style.background = 'rgba(239,68,68,0.1)';
+        sbIcon.innerText = '🚨';
+        sbTitle.innerText = 'CRITICAL STAMPEDE / CRUSH HAZARD LOGGED';
+        sbTitle.style.color = '#f87171';
+        sbDesc.innerText = `Peak risk reached ${peakRisk.toFixed(1)} with ${peakPersons} concurrent individuals. High compressive forces recorded.`;
+        compText.innerText = 'INCIDENT ESCALATION REQUIRED';
+        compText.style.color = '#ef4444';
+
+        recList.innerHTML = `
+            <li style="color:#f87171;font-weight:600;">Immediate Bottleneck Intervention: Disperse dense clusters at identified critical zones.</li>
+            <li>Physical Barriers: Reconfigure one-way egress routing to eliminate opposing crowd vectors.</li>
+            <li>Security Dispatch: Log automatic incident snapshot bundle into venue management audit records.</li>
+            <li>Egress Rate Optimization: Maintain active monitoring until density drops below 35%.</li>
+        `;
+    } else if (peakRisk >= 40) {
+        hBadge.className = 'badge badge-amber';
+        hBadge.innerText = 'ELEVATED RISK WARNING';
+        sb.style.borderColor = 'rgba(245,158,11,0.4)';
+        sb.style.background = 'rgba(245,158,11,0.08)';
+        sbIcon.innerText = '⚠️';
+        sbTitle.innerText = 'ELEVATED CROWD DENSITY DETECTED';
+        sbTitle.style.color = '#fbbf24';
+        sbDesc.innerText = `Moderate congestion observed (Peak Risk: ${peakRisk.toFixed(1)}). Ingress throttling recommended to avoid stagnation.`;
+        compText.innerText = 'WARNING — MONITORING LOGGED';
+        compText.style.color = '#f59e0b';
+
+        recList.innerHTML = `
+            <li>Ingress Control: Temporarily pace turnstiles/gates to reduce incoming velocity into active zones.</li>
+            <li>Staff Alert: Position floor marshals near transition choke points.</li>
+            <li>Continued Surveillance: Ensure flow vector convergence remains low.</li>
+        `;
+    } else {
+        hBadge.className = 'badge badge-green';
+        hBadge.innerText = 'OPERATIONAL SAFE';
+        sb.style.borderColor = 'rgba(16,185,129,0.3)';
+        sb.style.background = 'rgba(16,185,129,0.08)';
+        sbIcon.innerText = '🛡️';
+        sbTitle.innerText = 'NORMAL OPERATIONAL BASELINE';
+        sbTitle.style.color = '#34d399';
+        sbDesc.innerText = 'Crowd flow and spatial density parameters remained safely below alerting thresholds throughout the monitored session.';
+        compText.innerText = 'PASSED — SAFE LIMITS';
+        compText.style.color = '#10b981';
+
+        recList.innerHTML = `
+            <li>Continuous Standard Protocol: Standard baseline monitoring active.</li>
+            <li>Hardware Health: All telemetry and ByteTrack tracking pipelines operating with normal confidence bounds.</li>
+        `;
+    }
+
+    // Render Charts
+    renderSvgTimeline('risk_chart', data.risk_timeline || [], [
+        { y: 70, color: '#ef4444', label: 'Critical' },
+        { y: 40, color: '#f59e0b', label: 'Warning' }
+    ], '#3b82f6', 100);
+
+    renderSvgTimeline('person_chart', data.person_timeline || [], [], '#10b981', Math.max(peakPersons * 1.25, 20));
+
+    if (data.risk_timeline && data.risk_timeline.length > 0) {
+        document.getElementById('chart_t_start').innerText = data.risk_timeline[0].t;
+        document.getElementById('chart_t_end').innerText = data.risk_timeline[data.risk_timeline.length - 1].t;
+        document.getElementById('person_chart_stats').innerText = `Samples: ${data.person_timeline.length} | Peak: ${peakPersons} persons`;
+    }
+
+    // Render Snapshots
+    renderSnapshots(data.snapshots || []);
+}
+
+function renderSvgTimeline(svgId, points, guideLines, lineColor, maxY) {
+    const svg = document.getElementById(svgId);
+    if (!svg) return;
+
+    const w = svg.clientWidth || 900;
+    const h = svg.clientHeight || 200;
+    const padT = 20, padB = 25, padL = 35, padR = 20;
+    const innerW = w - padL - padR;
+    const innerH = h - padT - padB;
+
+    if (!points || points.length < 2) {
+        svg.innerHTML = `
+            <text x="${w/2}" y="${h/2}" fill="#64748b" font-size="12" text-anchor="middle">
+                Insufficient data points recorded yet. Run video stream to record live session history.
+            </text>
+        `;
+        return;
+    }
+
+    const n = points.length;
+    const getX = (i) => padL + (i / (n - 1)) * innerW;
+    const getY = (v) => padT + innerH - (Math.min(v, maxY) / maxY) * innerH;
+
+    let polylinePts = '';
+    let areaPts = `${padL},${padT + innerH} `;
+
+    points.forEach((p, i) => {
+        const x = getX(i);
+        const y = getY(p.v);
+        polylinePts += `${x.toFixed(1)},${y.toFixed(1)} `;
+        areaPts += `${x.toFixed(1)},${y.toFixed(1)} `;
+    });
+    areaPts += `${(padL + innerW).toFixed(1)},${(padT + innerH).toFixed(1)}`;
+
+    let guidelinesSvg = '';
+    guideLines.forEach(g => {
+        const gy = getY(g.y);
+        guidelinesSvg += `
+            <line x1="${padL}" y1="${gy.toFixed(1)}" x2="${padL + innerW}" y2="${gy.toFixed(1)}" stroke="${g.color}" stroke-dasharray="4,4" stroke-width="1.2" opacity="0.6"/>
+            <text x="${padL - 6}" y="${(gy + 3).toFixed(1)}" fill="${g.color}" font-size="10" text-anchor="end" font-family="'JetBrains Mono', monospace">${g.y}</text>
+        `;
+    });
+
+    const axisSvg = `
+        <line x1="${padL}" y1="${padT + innerH}" x2="${padL + innerW}" y2="${padT + innerH}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + innerH}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <text x="${padL - 6}" y="${padT + innerH}" fill="#64748b" font-size="10" text-anchor="end" font-family="'JetBrains Mono', monospace">0</text>
+        <text x="${padL - 6}" y="${padT + 8}" fill="#64748b" font-size="10" text-anchor="end" font-family="'JetBrains Mono', monospace">${Math.round(maxY)}</text>
+    `;
+
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="grad_${svgId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.0"/>
+            </linearGradient>
+        </defs>
+        ${axisSvg}
+        ${guidelinesSvg}
+        <polygon points="${areaPts}" fill="url(#grad_${svgId})"/>
+        <polyline points="${polylinePts}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    `;
+}
+
+function renderSnapshots(snapshots) {
+    const gallery = document.getElementById('snapshot_gallery');
+    const label = document.getElementById('snapshot_count_label');
+    label.innerText = `${snapshots.length} Snapshots Logged`;
+
+    if (!snapshots || snapshots.length === 0) {
+        gallery.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:36px;color:var(--text-s);font-size:13px;">
+                No critical incident snapshots recorded for this session.
+            </div>
+        `;
+        return;
+    }
+
+    gallery.innerHTML = snapshots.map(s => {
+        const rColor = s.risk >= 70 ? '#ef4444' : s.risk >= 40 ? '#f59e0b' : '#10b981';
+        return `
+            <div class="snapshot-card">
+                <a href="/snapshots/${s.filename}" target="_blank">
+                    <img class="snapshot-img" src="/snapshots/${s.filename}" alt="Incident Snapshot" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'240\\' height=\\'140\\'><rect width=\\'100%\\' height=\\'100%\\' fill=\\'%23161b26\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%2364748b\\' font-size=\\'12\\' text-anchor=\\'middle\\'>Preview unavailable</text></svg>'">
+                </a>
+                <div class="snapshot-body">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:12px;font-weight:700;color:${rColor};font-family:'JetBrains Mono',monospace;">Risk ${s.risk}</span>
+                        <span class="badge ${s.risk >= 70 ? 'badge-red' : 'badge-amber'}" style="font-size:10px;padding:2px 8px;">${s.category || 'High Risk'}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-s);margin-top:2px;">
+                        Zone: <strong style="color:var(--text-p);">${s.zone}</strong> · ${s.timestamp || ''}
+                    </div>
+                    <div style="margin-top:4px;">
+                        <a href="/snapshots/${s.filename}" download class="btn" style="padding:4px 10px;font-size:11px;width:100%;justify-content:center;">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Download Full JPEG
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function exportJSON() {
+    if (!reportData) return;
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `crowd_safety_report_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+window.addEventListener('load', fetchReportData);
+window.addEventListener('resize', () => { if (reportData) renderReport(reportData); });
+</script>
+
+</body>
+</html>

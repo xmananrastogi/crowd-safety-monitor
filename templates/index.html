@@ -2,195 +2,886 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Crowd Safety Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowd Safety Monitor — Operations Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            background-color: #0f1115;
-            color: #e5e7eb;
-            font-family: 'Inter', sans-serif;
-            margin: 0;
+        :root {
+            --bg-base: #08090c; --bg-surface: #0f1117; --bg-elevated: #161b26;
+            --border: rgba(255,255,255,0.07); --border-h: rgba(255,255,255,0.14);
+            --accent: #3b82f6; --green: #10b981; --amber: #f59e0b; --red: #ef4444;
+            --text-p: #f1f5f9; --text-s: #64748b; --text-m: #334155;
         }
-        .panel {
-            background: rgba(31, 34, 43, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-        .glass-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-        .glass-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
+        * { box-sizing: border-box; }
+        body { background:var(--bg-base); color:var(--text-p); font-family:'Inter',sans-serif; margin:0; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+        body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(255,255,255,0.013) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.013) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+        .panel { background:var(--bg-surface); border:1px solid var(--border); border-radius:10px; position:relative; z-index:1; }
+        .btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.15s; border:1px solid var(--border); background:var(--bg-elevated); color:var(--text-p); white-space:nowrap; }
+        .btn:hover { border-color:var(--border-h); background:rgba(255,255,255,0.06); }
+        .btn-danger { color:#f87171; border-color:rgba(239,68,68,0.2); }
+        .btn-danger:hover { background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.4); }
+        .btn-primary { background:#1d4ed8; border-color:#2563eb; color:white; }
+        .btn-primary:hover { background:#2563eb; }
+        .metric-card { background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; padding:14px; transition:border-color 0.3s; }
+        .metric-card:hover { border-color:var(--border-h); }
+        .progress-bar { height:3px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden; margin-top:8px; }
+        .progress-fill { height:100%; border-radius:99px; transition:width 0.6s ease,background 0.4s; }
+        .risk-ring { position:relative; width:120px; height:120px; margin:0 auto; }
+        .risk-ring svg { transform:rotate(-90deg); }
+        .risk-ring .ring-value { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        #alert-container { position:fixed; top:70px; right:20px; z-index:999; display:flex; flex-direction:column; gap:8px; width:320px; pointer-events:none; }
+        .alert-toast { background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start; pointer-events:all; animation:slideIn 0.3s ease; box-shadow:0 20px 40px rgba(0,0,0,0.5); }
+        .alert-toast.critical { border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.08); }
+        .alert-toast.warning { border-color:rgba(245,158,11,0.4); background:rgba(245,158,11,0.06); }
+        .alert-toast.info { border-color:rgba(59,130,246,0.3); }
+        @keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes slideOut { to{opacity:0;transform:translateX(20px)} }
+        @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .live-dot { animation:livePulse 2s infinite; }
+        #statusbar { height:30px; background:var(--bg-surface); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 18px; gap:20px; font-size:11px; color:var(--text-s); flex-shrink:0; z-index:1; }
+        .si { display:flex; align-items:center; gap:5px; }
+        .sidebar-tab { display:flex; align-items:center; gap:5px; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:500; color:var(--text-s); cursor:pointer; transition:all 0.15s; border:1px solid transparent; }
+        .sidebar-tab.active { background:var(--bg-elevated); border-color:var(--border); color:var(--text-p); }
+        .sidebar-tab:hover { color:var(--text-p); }
+        .sl { font-size:10px; font-weight:600; letter-spacing:0.1em; color:var(--text-s); text-transform:uppercase; }
+        .feed-overlay { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:16px; display:flex; justify-content:space-between; align-items:flex-end; }
+        .alert-log-item { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); font-size:12px; }
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:99px; }
     </style>
 </head>
-<body class="h-screen w-screen p-6 flex flex-col gap-6">
-    <!-- HEADER -->
-    <header class="flex justify-between items-center h-16 panel px-6">
-        <div class="flex items-center gap-4">
-            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30">CS</div>
-            <div>
-                <h1 class="text-xl font-semibold tracking-tight text-white">Crowd Safety Monitor</h1>
-                <p class="text-xs text-gray-400">Enterprise Video Analytics Platform</p>
+<body>
+<!-- HEADER -->
+<header style="height:52px;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;z-index:10;">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:30px;height:30px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <svg width="15" height="15" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        </div>
+        <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-p);letter-spacing:-0.01em;">Crowd Safety Monitor</div>
+            <div style="font-size:11px;color:var(--text-s);">Operations Intelligence Platform</div>
+        </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <button id="mute_btn" class="btn" onclick="toggleMute()" title="Toggle Alert Audio [M]">
+            <svg width="14" height="14" fill="none" stroke="#10b981" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+            Sound ON
+        </button>
+        <div id="alert_badge" style="display:none;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 10px;font-size:12px;color:#f87171;font-weight:600;cursor:pointer;" onclick="switchTab('alerts')">⚠ <span id="alert_count">0</span> ALERTS</div>
+        <button class="btn" onclick="switchTab('alerts')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            Alerts
+        </button>
+        <button class="btn btn-danger" onclick="stopFeed()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9 10h6v4H9z"></path></svg>
+            Stop Feed
+        </button>
+        <label class="btn btn-primary" style="cursor:pointer;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            Upload Feed
+            <input type="file" id="video_upload" class="hidden" accept=".mp4,.avi,.mov" onchange="uploadVideo()">
+        </label>
+    </div>
+</header>
+
+<!-- MAIN -->
+<div style="flex:1;display:flex;overflow:hidden;position:relative;z-index:1;">
+
+    <!-- VIDEO SIDE -->
+    <div style="flex:1;display:flex;flex-direction:column;padding:12px;padding-right:6px;gap:10px;overflow:hidden;">
+        <!-- Cam row -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="sl">Video Feed</div>
+            <div style="flex:1;"></div>
+            <div id="upload_status" style="font-size:12px;color:var(--text-s);font-weight:500;">● Loading feeds...</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+                <!-- Dynamic camera buttons injected here -->
+                <div id="camera_tabs" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;"></div>
+                
+                <!-- Add Feed Button -->
+                <button onclick="openAddFeedModal()" class="btn" style="padding:3px 9px;font-size:11px;gap:4px;background:rgba(59,130,246,0.1);border:1px dashed #3b82f6;color:#60a5fa;" title="Connect new RTSP, HLS, or file stream (Hotkey [A])">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    + Feed [A]
+                </button>
+
+                <div id="flow_btn" onclick="toggleFlow()" style="padding:3px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-s);cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;" title="Toggle Farnebäck Optical Flow (Hotkey [F])">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    Flow [F]
+                </div>
+                <div id="heatmap_btn" onclick="toggleHeatmap()" style="padding:3px 10px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-s);cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.2s;" title="Toggle Gaussian Density Heatmap (Hotkey [H])">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path></svg>
+                    Heatmap [H]
+                </div>
             </div>
         </div>
-        
-        <!-- UPLOAD SECTION -->
-        <div class="flex items-center gap-4">
-            <span id="upload_status" class="text-xs text-gray-400 font-medium"></span>
-            <label class="glass-btn px-4 py-2 cursor-pointer text-sm font-medium flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                Upload Video Feed
-                <input type="file" id="video_upload" class="hidden" accept=".mp4,.avi,.mov" onchange="uploadVideo()">
-            </label>
+        <!-- Feed -->
+        <div class="panel" style="flex:1;overflow:hidden;position:relative;">
+            <img src="/video_feed" style="width:100%;height:100%;object-fit:contain;display:block;background:#000;" alt="Feed">
+            <div class="feed-overlay">
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);" id="feed_ts">—</div>
+                <div style="display:flex;gap:10px;">
+                    <div id="feed_fps" style="font-size:11px;color:rgba(255,255,255,0.4);">— FPS</div>
+                    <div id="feed_zone" style="font-size:11px;color:rgba(255,255,255,0.4);">ZONE —</div>
+                </div>
+            </div>
         </div>
-    </header>
-
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 flex gap-6 h-[calc(100vh-8rem)]">
-        
-        <!-- VIDEO FEED (LEFT) -->
-        <div class="flex-1 panel flex flex-col overflow-hidden relative group">
-            <div class="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-xs font-medium flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-                ANALYSIS FEED
+        <!-- Sparkline -->
+        <div class="panel" style="height:72px;padding:8px 14px;display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="sl">Risk History (60s)</div>
+                <div id="sp_cur" style="font-size:12px;font-weight:600;color:var(--text-p);">—</div>
             </div>
-            
-            <img src="/video_feed" class="w-full h-full object-contain bg-black/40" alt="CCTV Feed">
-        </div>
-
-        <!-- TELEMETRY (RIGHT) -->
-        <div class="w-[380px] panel p-6 flex flex-col gap-6 overflow-hidden">
-            <h2 class="text-sm font-semibold tracking-wide text-gray-400 uppercase border-b border-white/5 pb-3">Real-time Telemetry</h2>
-            
-            <div class="flex flex-col items-center justify-center py-6 bg-black/20 rounded-xl border border-white/5">
-                <div class="text-sm font-medium text-gray-400 mb-2">Overall Risk Score</div>
-                <div id="risk_score" class="text-7xl font-bold tracking-tight text-white transition-colors duration-300">0.0</div>
-                <div id="risk_cat" class="text-sm font-semibold tracking-wider mt-3 px-3 py-1 rounded-full bg-white/10 text-white transition-colors duration-300">SAFE</div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
-                    <div class="text-xs text-gray-400 mb-1">Density Level</div>
-                    <div id="density" class="text-xl font-semibold text-white">0.0%</div>
-                </div>
-                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
-                    <div class="text-xs text-gray-400 mb-1">Congestion</div>
-                    <div id="congestion" class="text-xl font-semibold text-white">0.0%</div>
-                </div>
-                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
-                    <div class="text-xs text-gray-400 mb-1">Duration</div>
-                    <div id="duration" class="text-xl font-semibold text-white">0.0%</div>
-                </div>
-                <div class="bg-black/20 p-4 rounded-xl border border-white/5">
-                    <div class="text-xs text-gray-400 mb-1">Avg Speed</div>
-                    <div id="speed" class="text-xl font-semibold text-white">0.0 px/f</div>
-                </div>
-            </div>
-
-            <div id="asphyxia_box" class="mt-auto rounded-xl border border-white/5 bg-black/20 p-5 transition-all duration-300">
-                <div class="flex justify-between items-center mb-2">
-                    <div class="text-sm font-medium text-gray-300">Compressive Asphyxia Risk</div>
-                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <div class="flex items-end gap-2">
-                    <div id="asphyxia" class="text-3xl font-bold text-white">0.0%</div>
-                    <div id="asphyxia_status" class="text-xs font-medium text-gray-400 mb-1">Normal</div>
-                </div>
-            </div>
-            
-            <div id="footer_stats" class="text-[0.65rem] text-gray-500 text-center uppercase tracking-widest mt-2 border-t border-white/5 pt-4">
-                Connecting to telemetry stream...
-            </div>
+            <svg id="sparkline" height="34" style="width:100%;display:block;"></svg>
         </div>
     </div>
 
-    <script>
-        async function uploadVideo() {
-            const fileInput = document.getElementById('video_upload');
-            const file = fileInput.files[0];
-            if (!file) return;
+    <!-- SIDEBAR -->
+    <div style="width:330px;display:flex;flex-direction:column;padding:12px;padding-left:6px;overflow:hidden;">
+        <!-- Tabs -->
+        <div style="display:flex;gap:3px;margin-bottom:10px;">
+            <div class="sidebar-tab active" id="tab-telemetry" onclick="switchTab('telemetry')">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                Telemetry
+            </div>
+            <div class="sidebar-tab" id="tab-alerts" onclick="switchTab('alerts')">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Alerts
+                <span id="alert_tab_badge" style="display:none;background:#ef4444;color:white;border-radius:99px;padding:0px 5px;font-size:10px;"></span>
+            </div>
+            <div class="sidebar-tab" id="tab-settings" onclick="switchTab('settings')">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Settings
+            </div>
+        </div>
 
-            const statusText = document.getElementById('upload_status');
-            statusText.innerText = "Processing video...";
-            statusText.className = "text-xs text-blue-400 font-medium animate-pulse";
+        <!-- TELEMETRY PANEL -->
+        <div id="panel-telemetry" style="flex:1;display:flex;flex-direction:column;gap:8px;overflow-y:auto;">
+            <!-- Risk Ring -->
+            <div class="panel" style="padding:16px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                <div class="sl" style="align-self:flex-start;margin-bottom:4px;">Overall Risk Score</div>
+                <div class="risk-ring">
+                    <svg viewBox="0 0 120 120" width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+                        <circle id="ring_fill" cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="10" stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round" style="transition:all 0.6s ease;"/>
+                    </svg>
+                    <div class="ring-value">
+                        <div id="risk_score" style="font-size:28px;font-weight:700;color:#10b981;line-height:1;transition:color 0.4s;">0.0</div>
+                        <div id="risk_cat" style="font-size:9px;font-weight:700;letter-spacing:0.1em;color:#10b981;margin-top:2px;transition:color 0.4s;">SAFE</div>
+                    </div>
+                </div>
+                <div id="risk_desc" style="font-size:11px;color:var(--text-s);text-align:center;max-width:200px;">System monitoring. No active threats detected.</div>
+            </div>
 
-            const formData = new FormData();
-            formData.append('file', file);
+            <!-- Person Count -->
+            <div class="panel" style="padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div class="sl">Detected Persons</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                            <div id="person_count" style="font-size:30px;font-weight:700;color:var(--text-p);letter-spacing:-0.02em;">—</div>
+                            <div id="person_trend" style="font-size:20px;color:var(--text-s);transition:color 0.3s;">→</div>
+                        </div>
+                    </div>
+                    <div style="width:42px;height:42px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <svg width="20" height="20" fill="none" stroke="#60a5fa" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                </div>
+            </div>
 
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if(result.status === "success") {
-                    statusText.innerText = file.name;
-                    statusText.className = "text-xs text-green-400 font-medium";
-                }
-            } catch (err) {
-                statusText.innerText = "Upload failed";
-                statusText.className = "text-xs text-red-400 font-medium";
+            <!-- Metrics Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+                <div class="metric-card">
+                    <div class="sl">Density</div>
+                    <div id="density" style="font-size:20px;font-weight:600;color:var(--text-p);margin-top:5px;">0.0%</div>
+                    <div class="progress-bar"><div id="density_bar" class="progress-fill" style="width:0%;background:#3b82f6;"></div></div>
+                </div>
+                <div class="metric-card">
+                    <div class="sl">Congestion</div>
+                    <div id="congestion" style="font-size:20px;font-weight:600;color:var(--text-p);margin-top:5px;">0.0%</div>
+                    <div class="progress-bar"><div id="congestion_bar" class="progress-fill" style="width:0%;background:#8b5cf6;"></div></div>
+                </div>
+                <div class="metric-card">
+                    <div class="sl">Duration</div>
+                    <div id="duration" style="font-size:20px;font-weight:600;color:var(--text-p);margin-top:5px;">0.0%</div>
+                    <div class="progress-bar"><div id="duration_bar" class="progress-fill" style="width:0%;background:#f59e0b;"></div></div>
+                </div>
+                <div class="metric-card">
+                    <div class="sl">Avg Speed</div>
+                    <div id="speed" style="font-size:20px;font-weight:600;color:var(--text-p);margin-top:5px;">—</div>
+                    <div class="progress-bar"><div id="speed_bar" class="progress-fill" style="width:0%;background:#10b981;"></div></div>
+                </div>
+            </div>
+
+            <!-- Asphyxia -->
+            <div id="asphyxia_box" class="panel" style="padding:14px;transition:all 0.4s;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div>
+                        <div class="sl">Compressive Asphyxia Risk</div>
+                        <div style="font-size:9px;color:var(--text-s);margin-top:1px;">Crush/crowd pressure indicator</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:8px;">
+                    <div id="asphyxia" style="font-size:28px;font-weight:700;color:var(--text-p);transition:color 0.4s;">0.0%</div>
+                    <div id="asphyxia_status" style="font-size:11px;color:var(--text-s);margin-bottom:3px;">Normal</div>
+                </div>
+                <div class="progress-bar" style="height:4px;margin-top:8px;"><div id="asphyxia_bar" class="progress-fill" style="width:0%;background:#10b981;"></div></div>
+            </div>
+
+            <!-- Spatial Zone Matrix 4x4 -->
+            <div class="panel" style="padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div class="sl">Spatial Zone Matrix (4×4)</div>
+                    <div id="matrix_active_label" style="font-size:10px;color:#60a5fa;font-family:'JetBrains Mono',monospace;">ACTIVE: —</div>
+                </div>
+                <div id="zone_matrix" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px;">
+                    <!-- Dynamically populated 16 zone cells -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERTS PANEL -->
+        <div id="panel-alerts" style="flex:1;display:none;flex-direction:column;gap:8px;overflow:hidden;">
+            <div class="panel" style="flex:1;padding:14px;overflow:hidden;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="sl">Alert History</div>
+                    <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="clearAlerts()">Clear All</button>
+                </div>
+                <div id="alert_log_list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
+                    <div style="font-size:12px;color:var(--text-s);text-align:center;padding:30px 0;">No alerts yet. System monitoring active.</div>
+                </div>
+            </div>
+            <!-- Snapshots Gallery -->
+            <div class="panel" style="padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div class="sl">Incident Snapshots</div>
+                    <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="loadSnapshots()">Refresh</button>
+                </div>
+                <div id="snapshot_list" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;">
+                    <div style="font-size:11px;color:var(--text-s);text-align:center;padding:12px 0;">No snapshots yet. Snapshots are auto-saved on High Risk alerts.</div>
+                </div>
+            </div>
+            <div class="panel" style="padding:14px;">
+                <div class="sl" style="margin-bottom:10px;">Alert Thresholds</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-size:12px;color:var(--text-s);">Risk Score &gt; <span style="color:var(--text-p);font-weight:600;" id="thresh_risk_lbl">70</span></div>
+                        <input type="range" min="10" max="100" value="70" id="thresh_risk" oninput="document.getElementById('thresh_risk_lbl').innerText=this.value" style="width:90px;accent-color:#3b82f6;">
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-size:12px;color:var(--text-s);">Asphyxia &gt; <span style="color:var(--text-p);font-weight:600;" id="thresh_asph_lbl">50</span>%</div>
+                        <input type="range" min="10" max="100" value="50" id="thresh_asph" oninput="document.getElementById('thresh_asph_lbl').innerText=this.value" style="width:90px;accent-color:#ef4444;">
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-size:12px;color:var(--text-s);">Person Count &gt; <span style="color:var(--text-p);font-weight:600;" id="thresh_people_lbl">20</span></div>
+                        <input type="range" min="5" max="200" value="20" id="thresh_people" oninput="document.getElementById('thresh_people_lbl').innerText=this.value" style="width:90px;accent-color:#f59e0b;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PANEL -->
+        <div id="panel-settings" style="flex:1;display:none;flex-direction:column;gap:8px;overflow-y:auto;">
+            <div class="panel" style="padding:16px;">
+                <div class="sl" style="margin-bottom:12px;">Notifications</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-size:12px;color:var(--text-s);">Browser Notifications</div>
+                        <div id="notif_toggle" onclick="toggleNotif()" style="width:36px;height:20px;background:#1d4ed8;border-radius:99px;cursor:pointer;display:flex;align-items:center;padding:2px;transition:background 0.2s;">
+                            <div id="notif_knob" style="width:16px;height:16px;background:white;border-radius:50%;margin-left:auto;transition:margin 0.2s;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel" style="padding:16px;">
+                <div class="sl" style="margin-bottom:12px;">System Info</div>
+                <div style="font-size:12px;color:var(--text-s);display:flex;flex-direction:column;gap:7px;">
+                    <div style="display:flex;justify-content:space-between;"><span>Model</span><span style="color:var(--text-p);">YOLOv8s + ByteTrack</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span>Backend</span><span style="color:var(--text-p);">FastAPI + OpenCV</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span>Uptime</span><span style="color:var(--text-p);" id="sys_uptime">—</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span>Version</span><span style="color:var(--text-p);">v3.0.0</span></div>
+                </div>
+            </div>
+            <div class="panel" style="padding:14px;">
+                <div class="sl" style="margin-bottom:10px;">Session Report</div>
+                <div style="font-size:12px;color:var(--text-s);margin-bottom:10px;">Generate a full post-analysis summary with risk timeline, peak metrics, and incident snapshots.</div>
+                <button class="btn" style="width:100%;padding:8px;font-size:13px;font-weight:600;" onclick="window.open('/report_page','_blank')">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Generate Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+    <div class="si"><span class="live-dot" style="width:6px;height:6px;background:#22c55e;border-radius:50%;display:inline-block;"></span>ONLINE</div>
+    <div class="si">FPS: <span id="sb_fps" style="color:var(--text-p);">—</span></div>
+    <div class="si">ZONE: <span id="sb_zone" style="color:var(--text-p);">—</span></div>
+    <div class="si">PERSONS: <span id="sb_persons" style="color:var(--text-p);">—</span></div>
+    <div style="flex:1;"></div>
+    <div id="sb_last_alert" style="color:var(--text-s);">No alerts</div>
+    <div id="sb_time" style="color:var(--text-s);"></div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="alert-container"></div>
+
+<!-- ADD FEED MODAL -->
+<div id="add_feed_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#111827;border:1px solid #374151;border-radius:12px;padding:24px;width:500px;max-width:92vw;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:8px;height:8px;background:#38bdf8;border-radius:50%;"></div>
+                <div style="font-size:14px;font-weight:700;color:#f3f4f6;letter-spacing:0.5px;">CONNECT SURVEILLANCE FEED</div>
+            </div>
+            <button onclick="closeAddFeedModal()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:18px;line-height:1;">✕</button>
+        </div>
+        
+        <div style="font-size:12px;color:#9ca3af;line-height:1.4;">
+            Connect an IP camera via RTSP, an HTTP/HLS video stream, a local surveillance video path, or a hardware camera device.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;font-weight:600;color:#cbd5e1;text-transform:uppercase;">Feed Label / Channel Name</label>
+            <input type="text" id="modal_feed_name" placeholder="e.g. South Gate RTSP, Terminal Corridor" style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 12px;font-size:13px;color:#fff;outline:none;" />
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;font-weight:600;color:#cbd5e1;text-transform:uppercase;">Stream Source / URI / Path</label>
+            <input type="text" id="modal_feed_source" placeholder="rtsp://192.168.1.100:554/live, data/video.mp4, or 0" style="background:#1f2937;border:1px solid #374151;border-radius:6px;padding:8px 12px;font-size:13px;color:#fff;font-family:monospace;outline:none;" />
+        </div>
+
+        <!-- Quick Presets -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;">Presets:</span>
+            <button type="button" onclick="setModalPreset('RTSP IP Camera', 'rtsp://admin:pass@192.168.1.100:554/live')" style="padding:3px 8px;font-size:10px;background:#1f2937;border:1px solid #374151;border-radius:4px;color:#9ca3af;cursor:pointer;">RTSP Cam</button>
+            <button type="button" onclick="setModalPreset('Pedestrian Crosswalk', 'data/crosswalk_dense.mp4')" style="padding:3px 8px;font-size:10px;background:#1f2937;border:1px solid #374151;border-radius:4px;color:#9ca3af;cursor:pointer;">Crosswalk</button>
+            <button type="button" onclick="setModalPreset('Commercial Boulevard', 'data/calle_preciados.mp4')" style="padding:3px 8px;font-size:10px;background:#1f2937;border:1px solid #374151;border-radius:4px;color:#9ca3af;cursor:pointer;">Boulevard</button>
+            <button type="button" onclick="setModalPreset('USB Device 0', '0')" style="padding:3px 8px;font-size:10px;background:#1f2937;border:1px solid #374151;border-radius:4px;color:#9ca3af;cursor:pointer;">Webcam [0]</button>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+            <button onclick="closeAddFeedModal()" class="btn" style="padding:6px 14px;">Cancel</button>
+            <button onclick="submitNewFeed()" class="btn btn-primary" style="padding:6px 16px;background:#2563eb;color:#fff;font-weight:600;">Connect & Stream</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let riskHistory=[], alertLog=[], alertCount=0, lastAlertTime={}, notifEnabled=true, startTime=Date.now();
+
+setInterval(()=>{
+    const s=Math.floor((Date.now()-startTime)/1000);
+    const h=String(Math.floor(s/3600)).padStart(2,'0'),m=String(Math.floor((s%3600)/60)).padStart(2,'0'),sec=String(s%60).padStart(2,'0');
+    const upEl=document.getElementById('sys_uptime');
+    if(upEl) upEl.innerText=`${h}:${m}:${sec}`;
+    const now=new Date();
+    document.getElementById('sb_time').innerText=now.toLocaleTimeString();
+    document.getElementById('feed_ts').innerText=now.toLocaleString();
+},1000);
+
+function switchTab(tab){
+    ['telemetry','alerts','settings'].forEach(t=>{
+        document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+        document.getElementById('panel-'+t).style.display=t===tab?'flex':'none';
+    });
+}
+
+let availableCameras = [];
+let activeCameraId = 'CAM-01';
+
+function renderCameraTabs(){
+    const container = document.getElementById('camera_tabs');
+    if(!container) return;
+    container.innerHTML = '';
+    
+    availableCameras.forEach((cam, index) => {
+        const isActive = (cam.id === activeCameraId);
+        const tab = document.createElement('div');
+        tab.id = 'cam_btn_' + cam.id;
+        tab.className = 'cam-tab' + (isActive ? ' active' : '');
+        tab.style.padding = '3px 10px';
+        tab.style.background = 'var(--bg-elevated)';
+        tab.style.border = isActive ? '1px solid #3b82f6' : '1px solid var(--border)';
+        tab.style.borderRadius = '6px';
+        tab.style.fontSize = '11px';
+        tab.style.color = isActive ? '#60a5fa' : 'var(--text-s)';
+        tab.style.fontWeight = isActive ? '600' : '400';
+        tab.style.display = 'flex';
+        tab.style.alignItems = 'center';
+        tab.style.gap = '5px';
+        tab.style.cursor = 'pointer';
+        tab.style.transition = 'all 0.2s';
+        tab.title = `${cam.description || cam.name} (Source: ${cam.source})`;
+        
+        const hotkey = (index < 9) ? `[${index + 1}]` : '';
+        const liveDot = isActive ? '<span class="live-dot" style="width:6px;height:6px;background:#60a5fa;border-radius:50%;display:inline-block;"></span>' : '';
+        
+        tab.innerHTML = `${liveDot}<span>${cam.id}: ${cam.name}</span><span style="font-size:9px;color:rgba(255,255,255,0.3);font-family:monospace;">${hotkey}</span>`;
+        tab.onclick = () => switchCamera(cam.id);
+        container.appendChild(tab);
+    });
+}
+
+async function fetchCameras(){
+    try{
+        const r = await fetch('/api/cameras');
+        const j = await r.json();
+        if(j.cameras){
+            availableCameras = j.cameras;
+            if(j.active_camera_id) activeCameraId = j.active_camera_id;
+            renderCameraTabs();
+            
+            const activeCam = availableCameras.find(c => c.id === activeCameraId);
+            const st = document.getElementById('upload_status');
+            if(activeCam && st){
+                st.innerText = `● ${activeCam.id}: ${activeCam.name}`;
+                st.style.color = '#22c55e';
             }
         }
+    }catch(e){
+        console.error("Failed to fetch cameras:", e);
+    }
+}
 
-        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+function openAddFeedModal(){
+    document.getElementById('add_feed_modal').style.display = 'flex';
+    document.getElementById('modal_feed_name').focus();
+}
+
+function closeAddFeedModal(){
+    document.getElementById('add_feed_modal').style.display = 'none';
+}
+
+function setModalPreset(name, source){
+    document.getElementById('modal_feed_name').value = name;
+    document.getElementById('modal_feed_source').value = source;
+}
+
+async function submitNewFeed(){
+    const name = document.getElementById('modal_feed_name').value.trim();
+    const source = document.getElementById('modal_feed_source').value.trim();
+    if(!source){
+        alert("Please enter a stream source (RTSP URL, file path, or webcam index).");
+        return;
+    }
+    try{
+        const r = await fetch('/api/cameras/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name || "Custom Feed", source: source, switch_now: true})
+        });
+        const j = await r.json();
+        if(j.status === 'success'){
+            closeAddFeedModal();
+            await fetchCameras();
+            pushAlert('info', 'Feed Connected', `Active: ${j.camera.name}`);
+        } else {
+            alert(j.error || "Failed to add feed.");
+        }
+    }catch(e){
+        alert("Error connecting feed: " + e.message);
+    }
+}
+
+async function uploadVideo(){
+    const file = document.getElementById('video_upload').files[0];
+    if(!file) return;
+    const st = document.getElementById('upload_status');
+    st.innerText = 'Uploading ' + file.name + '...'; 
+    st.style.color = '#60a5fa';
+    const fd = new FormData(); 
+    fd.append('file', file);
+    try{
+        const r = await fetch('/upload', {method: 'POST', body: fd});
+        const j = await r.json();
+        if(j.status === 'success'){
+            await fetchCameras();
+            st.innerText = '● ' + j.camera.name;
+            st.style.color = '#22c55e';
+            pushAlert('info', 'Feed Loaded', `Analyzing "${j.camera.name}"`);
+        }
+    }catch(e){
+        st.innerText = 'Upload failed';
+        st.style.color = '#f87171';
+    }
+}
+
+async function stopFeed(){
+    try{
+        await fetch('/stop', {method:'POST'});
+        const st = document.getElementById('upload_status');
+        st.innerText = 'Feed stopped';
+        st.style.color = '#f87171';
+        document.getElementById('risk_score').innerText = '0.0';
+        document.getElementById('risk_cat').innerText = 'SAFE';
+        ['density','congestion','duration','asphyxia'].forEach(id => document.getElementById(id).innerText = '0.0%');
+        document.getElementById('speed').innerText = '—';
+        document.getElementById('person_count').innerText = '—';
+        document.getElementById('person_trend').innerText = '→';
+        document.getElementById('person_trend').style.color = 'var(--text-s)';
+        setRiskColor(0, 'Safe');
+    }catch(e){console.error(e);}
+}
+
+async function toggleFlow(){
+    try{
+        const r = await fetch('/toggle_flow', {method:'POST'});
+        const j = await r.json();
+        const btn = document.getElementById('flow_btn');
+        if(j.flow_enabled){
+            btn.style.borderColor = '#3b82f6';
+            btn.style.color = '#60a5fa';
+        } else {
+            btn.style.borderColor = 'var(--border)';
+            btn.style.color = 'var(--text-s)';
+        }
+    }catch(e){console.error(e);}
+}
+
+async function toggleHeatmap(){
+    try{
+        const r = await fetch('/toggle_heatmap', {method:'POST'});
+        const j = await r.json();
+        const btn = document.getElementById('heatmap_btn');
+        if(j.heatmap_enabled){
+            btn.style.borderColor = '#f59e0b';
+            btn.style.color = '#fbbf24';
+        } else {
+            btn.style.borderColor = 'var(--border)';
+            btn.style.color = 'var(--text-s)';
+        }
+    }catch(e){console.error(e);}
+}
+
+async function switchCamera(camId){
+    try{
+        activeCameraId = camId;
+        renderCameraTabs();
+        const st = document.getElementById('upload_status');
+        st.innerText = 'Switching to ' + camId + '...';
+        st.style.color = '#60a5fa';
         
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (!data || Object.keys(data).length === 0) return;
-            
-            // Elements
-            const riskEl = document.getElementById("risk_score");
-            const catEl = document.getElementById("risk_cat");
-            const asphyxiaBox = document.getElementById("asphyxia_box");
-            
-            // Update values
-            riskEl.innerText = (data['R_z[n]'] || 0).toFixed(1);
-            catEl.innerText = (data['Risk_Category'] || "SAFE").toUpperCase();
-            
-            document.getElementById("density").innerText = (data['D_smoothed_z[n]'] || 0).toFixed(1) + "%";
-            document.getElementById("congestion").innerText = (data['C_smoothed_z[n]'] || 0).toFixed(1) + "%";
-            document.getElementById("duration").innerText = (data['T_z[n]'] || 0).toFixed(1) + "%";
-            document.getElementById("speed").innerText = (data['Tracked_Speed_z[n]'] || 0).toFixed(2) + " px/f";
-            
-            const asphyxiaRisk = data['Suffocation_Risk_z[n]'] || 0;
-            document.getElementById("asphyxia").innerText = asphyxiaRisk.toFixed(1) + "%";
-            
-            document.getElementById("footer_stats").innerText = "FPS: " + (data['fps'] || 0).toFixed(1) + "  •  ACTIVE ZONE: " + data['zone'];
-            
-            // Dynamic Styling based on Risk Category
-            let color = "#10b981"; // emerald-500
-            let bgClass = "bg-emerald-500/20 text-emerald-400";
-            
-            if (data['Risk_Category'] === "High Risk") {
-                color = "#ef4444"; // red-500
-                bgClass = "bg-red-500/20 text-red-400";
-            } else if (data['Risk_Category'] === "Warning") {
-                color = "#f59e0b"; // amber-500
-                bgClass = "bg-amber-500/20 text-amber-400";
-            }
-            
-            riskEl.style.color = color;
-            catEl.className = `text-xs font-semibold tracking-wider mt-3 px-3 py-1 rounded-full ${bgClass} transition-colors duration-300`;
-            
-            if (asphyxiaRisk > 50) {
-                asphyxiaBox.className = "mt-auto rounded-xl border border-red-500/50 bg-red-500/10 p-5 transition-all duration-300";
-                document.getElementById("asphyxia").className = "text-3xl font-bold text-red-400";
-                document.getElementById("asphyxia_status").innerText = "CRITICAL WARNING";
-                document.getElementById("asphyxia_status").className = "text-xs font-bold text-red-400 mb-1 animate-pulse";
-            } else {
-                asphyxiaBox.className = "mt-auto rounded-xl border border-white/5 bg-black/20 p-5 transition-all duration-300";
-                document.getElementById("asphyxia").className = "text-3xl font-bold text-white";
-                document.getElementById("asphyxia_status").innerText = "Normal";
-                document.getElementById("asphyxia_status").className = "text-xs font-medium text-gray-400 mb-1";
-            }
-        };
-    </script>
+        const r = await fetch('/switch_camera', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({camera_id: camId})
+        });
+        const j = await r.json();
+        if(j.status === 'success'){
+            const camName = j.camera ? j.camera.name : camId;
+            st.innerText = '● ' + camId + ': ' + camName;
+            st.style.color = '#22c55e';
+            pushAlert('info', 'Feed Switched', `Now streaming ${camId} (${camName})`);
+        }
+    }catch(e){console.error(e);}
+}
+
+let audioCtx=null;
+let isMuted=false;
+let lastAlarmTime=0;
+
+function toggleMute(){
+    isMuted=!isMuted;
+    const btn=document.getElementById('mute_btn');
+    if(btn){
+        btn.innerHTML=isMuted 
+            ? `<svg width="14" height="14" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg> Muted`
+            : `<svg width="14" height="14" fill="none" stroke="#10b981" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg> Sound ON`;
+        btn.style.color=isMuted?'#f87171':'var(--text-p)';
+    }
+}
+
+function playAlertSound(level){
+    if(isMuted) return;
+    const now=Date.now();
+    if(now-lastAlarmTime<2500) return;
+    lastAlarmTime=now;
+    try{
+        if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+        if(audioCtx.state==='suspended') audioCtx.resume();
+        const osc=audioCtx.createOscillator();
+        const gain=audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if(level==='critical'){
+            osc.type='sawtooth';
+            osc.frequency.setValueAtTime(880,audioCtx.currentTime);
+            osc.frequency.setValueAtTime(660,audioCtx.currentTime+0.12);
+            gain.gain.setValueAtTime(0.12,audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.32);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime+0.32);
+        }else{
+            osc.type='sine';
+            osc.frequency.setValueAtTime(540,audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08,audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.22);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime+0.22);
+        }
+    }catch(e){}
+}
+
+const zoneNames=[
+    'Zone_0_0','Zone_0_1','Zone_0_2','Zone_0_3',
+    'Zone_1_0','Zone_1_1','Zone_1_2','Zone_1_3',
+    'Zone_2_0','Zone_2_1','Zone_2_2','Zone_2_3',
+    'Zone_3_0','Zone_3_1','Zone_3_2','Zone_3_3'
+];
+
+function initZoneMatrix(){
+    const grid=document.getElementById('zone_matrix');
+    if(!grid) return;
+    grid.innerHTML=zoneNames.map(z=>{
+        return `<div id="zm_${z}" title="${z}" style="height:32px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all 0.3s;cursor:pointer;">
+            <div style="font-size:8px;font-weight:700;color:var(--text-s);line-height:1;">${z.replace('Zone_','Z')}</div>
+            <div id="zmv_${z}" style="font-size:10px;font-weight:700;color:var(--text-p);margin-top:2px;">0</div>
+        </div>`;
+    }).join('');
+}
+
+function updateZoneMatrix(allZones,activeZone){
+    if(!allZones) return;
+    const actBadge=document.getElementById('matrix_active_label');
+    if(actBadge&&activeZone) actBadge.innerText='PEAK: '+activeZone.replace('Zone_','Z');
+
+    for(const [z,info] of Object.entries(allZones)){
+        const el=document.getElementById('zm_'+z);
+        const vel=document.getElementById('zmv_'+z);
+        if(!el||!vel) continue;
+
+        const r=info.risk||0;
+        vel.innerText=Math.round(r);
+
+        const isActive=(z===activeZone);
+        if(r>=65){
+            el.style.background='rgba(239,68,68,0.25)';
+            el.style.borderColor=isActive?'#f87171':'rgba(239,68,68,0.5)';
+            vel.style.color='#f87171';
+        }else if(r>=35){
+            el.style.background='rgba(245,158,11,0.2)';
+            el.style.borderColor=isActive?'#fbbf24':'rgba(245,158,11,0.4)';
+            vel.style.color='#fbbf24';
+        }else{
+            el.style.background='var(--bg-elevated)';
+            el.style.borderColor=isActive?'#3b82f6':'var(--border)';
+            vel.style.color='var(--text-p)';
+        }
+        if(isActive){
+            el.style.boxShadow='0 0 8px rgba(59,130,246,0.6)';
+        }else{
+            el.style.boxShadow='none';
+        }
+    }
+}
+
+async function loadSnapshots(){
+    try{
+        const r=await fetch('/snapshots');
+        const snaps=await r.json();
+        const list=document.getElementById('snapshot_list');
+        if(!snaps||snaps.length===0){
+            list.innerHTML='<div style="font-size:11px;color:var(--text-s);text-align:center;padding:12px 0;">No snapshots yet.</div>';
+            return;
+        }
+        list.innerHTML=snaps.map(s=>{
+            const rColor=s.risk>70?'#f87171':s.risk>40?'#fbbf24':'#10b981';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);gap:8px;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:11px;font-weight:600;color:${rColor};">Risk ${s.risk} — ${s.category}</div>
+                    <div style="font-size:10px;color:var(--text-s);margin-top:1px;">${s.timestamp} · Zone ${s.zone}</div>
+                </div>
+                <a href="/snapshots/${s.filename}" download style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--text-p);text-decoration:none;">
+                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    .jpg
+                </a>
+            </div>`;
+        }).join('');
+    }catch(e){console.error(e);}
+}
+
+function pushAlert(type,title,body){
+    playAlertSound(type);
+    const timeStr=new Date().toLocaleTimeString();
+    const key=type+title;
+    if(lastAlertTime[key]&&Date.now()-lastAlertTime[key]<10000) return;
+    lastAlertTime[key]=Date.now();
+    alertCount++;
+    alertLog.unshift({type,title,body,time:timeStr});
+    document.getElementById('alert_badge').style.display='block';
+    document.getElementById('alert_count').innerText=alertCount;
+    document.getElementById('alert_tab_badge').style.display='inline';
+    document.getElementById('alert_tab_badge').innerText=alertCount;
+    document.getElementById('sb_last_alert').innerText=`⚠ ${timeStr} — ${title}`;
+    renderAlertLog();
+    const c=document.getElementById('alert-container');
+    const t=document.createElement('div');
+    t.className='alert-toast '+type;
+    const ic=type==='critical'?'#f87171':type==='warning'?'#fbbf24':'#60a5fa';
+    t.innerHTML=`<div style="width:30px;height:30px;background:${ic}22;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" fill="none" stroke="${ic}" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:${ic};">${title}</div><div style="font-size:11px;color:var(--text-s);margin-top:2px;">${body}</div><div style="font-size:10px;color:var(--text-m);margin-top:3px;">${timeStr}</div></div><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-s);cursor:pointer;font-size:16px;line-height:1;padding:0;flex-shrink:0;">×</button>`;
+    c.appendChild(t);
+    setTimeout(()=>{t.style.animation='slideOut 0.3s ease forwards';setTimeout(()=>t.remove(),300);},6000);
+    if(notifEnabled&&Notification.permission==='granted') new Notification('🚨 '+title,{body});
+}
+
+function renderAlertLog(){
+    const list=document.getElementById('alert_log_list');
+    if(alertLog.length===0){list.innerHTML='<div style="font-size:12px;color:var(--text-s);text-align:center;padding:30px 0;">No alerts yet.</div>';return;}
+    list.innerHTML=alertLog.slice(0,50).map(a=>{
+        const d=a.type==='critical'?'#ef4444':a.type==='warning'?'#f59e0b':'#3b82f6';
+        return `<div class="alert-log-item"><div style="width:7px;height:7px;border-radius:50%;background:${d};margin-top:3px;flex-shrink:0;"></div><div style="flex:1;"><div style="font-weight:600;color:var(--text-p);">${a.title}</div><div style="color:var(--text-s);margin-top:1px;">${a.body}</div></div><div style="color:var(--text-m);white-space:nowrap;font-size:11px;">${a.time}</div></div>`;
+    }).join('');
+}
+
+function clearAlerts(){
+    alertLog=[];alertCount=0;
+    document.getElementById('alert_badge').style.display='none';
+    document.getElementById('alert_tab_badge').style.display='none';
+    document.getElementById('sb_last_alert').innerText='No alerts';
+    renderAlertLog();
+}
+
+function toggleNotif(){
+    notifEnabled=!notifEnabled;
+    document.getElementById('notif_toggle').style.background=notifEnabled?'#1d4ed8':'rgba(255,255,255,0.08)';
+    document.getElementById('notif_knob').style.marginLeft=notifEnabled?'auto':'0';
+    if(notifEnabled&&Notification.permission==='default') Notification.requestPermission();
+}
+
+function setRiskColor(score,category){
+    let color='#10b981';
+    if(category==='High Risk'||score>70) color='#ef4444';
+    else if(category==='Warning'||score>40) color='#f59e0b';
+    document.getElementById('risk_score').style.color=color;
+    document.getElementById('risk_cat').style.color=color;
+    document.getElementById('ring_fill').style.stroke=color;
+    document.getElementById('ring_fill').style.strokeDashoffset=314-(314*Math.min(score/100,1));
+    const descs={'High Risk':'Critical density detected. Immediate action required.','Warning':'Elevated risk. Monitor and prepare response.','Safe':'System monitoring. No active threats detected.'};
+    document.getElementById('risk_desc').innerText=descs[category]||descs['Safe'];
+}
+
+function updateSparkline(){
+    const svg=document.getElementById('sparkline');
+    const W=svg.getBoundingClientRect().width||600,H=34;
+    const data=riskHistory.slice(-60);
+    if(data.length<2) return;
+    const pts=data.map((v,i)=>`${(i/(data.length-1))*W},${H-(v/100)*H}`).join(' ');
+    const last=data[data.length-1];
+    const lc=last>70?'#ef4444':last>40?'#f59e0b':'#10b981';
+    svg.innerHTML=`<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lc}" stop-opacity="0.3"/><stop offset="100%" stop-color="${lc}" stop-opacity="0"/></linearGradient></defs><polygon points="${pts} ${W},${H} 0,${H}" fill="url(#sg)"/><polyline points="${pts}" fill="none" stroke="${lc}" stroke-width="1.5" stroke-linejoin="round"/>`;
+    document.getElementById('sp_cur').innerText=last.toFixed(1);
+    document.getElementById('sp_cur').style.color=lc;
+}
+
+const ws=new WebSocket('ws://'+window.location.host+'/ws');
+ws.onmessage=function(event){
+    const data=JSON.parse(event.data);
+    if(!data||!Object.keys(data).length) return;
+    const risk=data['R_z[n]']||0, category=data['Risk_Category']||'Safe';
+    const density=data['D_smoothed_z[n]']||0, congestion=data['C_smoothed_z[n]']||0;
+    const duration=data['T_z[n]']||0, speed=data['Tracked_Speed_z[n]']||0;
+    const asphyxia=data['Suffocation_Risk_z[n]']||0, fps=data['fps']||0;
+    const zone=data['zone']||'—', count=data['person_count']||data['D_raw']||'—';
+
+    document.getElementById('risk_score').innerText=risk.toFixed(1);
+    document.getElementById('risk_cat').innerText=category.toUpperCase();
+    document.getElementById('density').innerText=density.toFixed(1)+'%';
+    document.getElementById('congestion').innerText=congestion.toFixed(1)+'%';
+    document.getElementById('duration').innerText=duration.toFixed(1)+'%';
+    document.getElementById('speed').innerText=speed.toFixed(1)+' px/f';
+    document.getElementById('asphyxia').innerText=asphyxia.toFixed(1)+'%';
+    document.getElementById('person_count').innerText=count;
+    // Feature 2: Trend arrow
+    const trend=data['person_trend']||'stable';
+    const trendEl=document.getElementById('person_trend');
+    if(trend==='up'){trendEl.innerText='↑';trendEl.style.color='#f87171';}
+    else if(trend==='down'){trendEl.innerText='↓';trendEl.style.color='#10b981';}
+    else{trendEl.innerText='→';trendEl.style.color='var(--text-s)';}  
+    document.getElementById('density_bar').style.width=Math.min(density,100)+'%';
+    document.getElementById('congestion_bar').style.width=Math.min(congestion,100)+'%';
+    document.getElementById('duration_bar').style.width=Math.min(duration,100)+'%';
+    document.getElementById('speed_bar').style.width=Math.min(speed*5,100)+'%';
+    document.getElementById('asphyxia_bar').style.width=Math.min(asphyxia,100)+'%';
+    document.getElementById('sb_fps').innerText=fps.toFixed(1);
+    document.getElementById('sb_zone').innerText=zone;
+    document.getElementById('sb_persons').innerText=count;
+    document.getElementById('feed_fps').innerText=fps.toFixed(1)+' FPS';
+    document.getElementById('feed_zone').innerText='ZONE '+zone;
+    setRiskColor(risk,category);
+    if(data['all_zones']) updateZoneMatrix(data['all_zones'],zone);
+
+    const ab=document.getElementById('asphyxia_box');
+    if(asphyxia>50){
+        ab.style.borderColor='rgba(239,68,68,0.4)';ab.style.background='rgba(239,68,68,0.06)';
+        document.getElementById('asphyxia').style.color='#f87171';
+        document.getElementById('asphyxia_status').innerText='CRITICAL';
+        document.getElementById('asphyxia_status').style.color='#f87171';
+        document.getElementById('asphyxia_bar').style.background='#ef4444';
+    }else{
+        ab.style.borderColor='var(--border)';ab.style.background='transparent';
+        document.getElementById('asphyxia').style.color='var(--text-p)';
+        document.getElementById('asphyxia_status').innerText='Normal';
+        document.getElementById('asphyxia_status').style.color='var(--text-s)';
+        document.getElementById('asphyxia_bar').style.background='#10b981';
+    }
+
+    riskHistory.push(risk);
+    if(riskHistory.length>300) riskHistory.shift();
+    updateSparkline();
+
+    const rt=parseInt(document.getElementById('thresh_risk').value);
+    const at=parseInt(document.getElementById('thresh_asph').value);
+    const pt=parseInt(document.getElementById('thresh_people').value);
+    if(risk>rt) pushAlert('critical','🚨 High Risk Detected',`Risk ${risk.toFixed(1)} exceeds threshold ${rt} in zone ${zone}`);
+    if(asphyxia>at) pushAlert('critical','⚠ Asphyxia Risk',`Crush pressure at ${asphyxia.toFixed(1)}% — immediate dispersion needed`);
+    if(count!=='—'&&parseInt(count)>pt) pushAlert('warning','👥 Crowd Threshold',`${count} persons detected — limit is ${pt}`);
+    if(category==='High Risk') pushAlert('critical','Critical Crowd Level',`Zone ${zone} has entered High Risk state`);
+
+    // Dynamic camera label updates from telemetry
+    if(data['camera_id'] && data['camera_id'] !== activeCameraId){
+        activeCameraId = data['camera_id'];
+        renderCameraTabs();
+    }
+    if(data['camera_name'] && data['camera_id']){
+        const st = document.getElementById('upload_status');
+        if(st) {
+            st.innerText = `● ${data['camera_id']}: ${data['camera_name']}`;
+            st.style.color = '#22c55e';
+        }
+    }
+};
+
+initZoneMatrix();
+fetchCameras();
+
+const urlParams = new URLSearchParams(window.location.search);
+if(urlParams.get('tab')){
+    switchTab(urlParams.get('tab'));
+}
+if(urlParams.get('modal') === 'add_feed'){
+    openAddFeedModal();
+}
+
+window.addEventListener('keydown',(e)=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if(e.key >= '1' && e.key <= '9'){
+        const idx = parseInt(e.key) - 1;
+        if(availableCameras[idx]) switchCamera(availableCameras[idx].id);
+    }
+    else if(e.key==='a'||e.key==='A') openAddFeedModal();
+    else if(e.key==='h'||e.key==='H') toggleHeatmap();
+    else if(e.key==='f'||e.key==='F') toggleFlow();
+    else if(e.key==='m'||e.key==='M') toggleMute();
+    else if(e.key==='r'||e.key==='R') window.open('/report_page','_blank');
+    else if(e.key==='Escape') closeAddFeedModal();
+    else if(e.code==='Space'){ e.preventDefault(); stopFeed(); }
+});
+
+if(Notification.permission==='default') Notification.requestPermission();
+window.addEventListener('resize',updateSparkline);
+</script>
 </body>
 </html>
