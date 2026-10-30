@@ -21,17 +21,15 @@ An enterprise-grade, AI-driven surveillance dashboard designed to proactively de
   - **Manan Rastogi** (Reg. No: `24BML0004`)
   - **Jayanth Anand** (Reg. No: `24BML0072`)
 - **Faculty Guide & Evaluator**:
-  - **Prof. / Dr. Jeeva Devakumar** (School of Computer Science and Engineering / Review Board)
+  - **Prof. / Dr. Jeeva Devakumar** (Faculty Guide & Evaluator)
 
-## Presentation & Executive Reports
+## Project Deliverable Generation
 
-- **Official Project-1 Report (Format 2026 DOCX)**: [Crowd_Safety_Monitor_Project_Report_2026.docx](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Project_Report_2026.docx)
-- **Official Project-1 Report (Format 2026 PDF)**: [Crowd_Safety_Monitor_Project_Report_2026.pdf](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Project_Report_2026.pdf)
-- **Academic Evaluation Slide Deck (16:9 PPTX)**: [Crowd_Safety_Monitor_Project_Evaluation.pptx](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Project_Evaluation.pptx)
-- **Academic Evaluation Slides (Vector PDF)**: [Crowd_Safety_Monitor_Project_Evaluation.pdf](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Project_Evaluation.pdf)
-- **Academic Research Paper (Single Column PDF)**: [Crowd_Safety_Monitor_Academic_Paper.pdf](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Academic_Paper.pdf)
-- **Academic Research Paper (Markdown)**: [Crowd_Safety_Monitor_Academic_Paper.md](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Academic_Paper.md)
-- **Executive Post-Incident Audit Report (PDF)**: [Crowd_Safety_Monitor_Executive_Audit_Report.pdf](file:///Users/mananrastogi/ai%20tracker/crowd-safety-monitor/Crowd_Safety_Monitor_Executive_Audit_Report.pdf)
+The repository includes standalone Python generators to compile academic documentation and presentation materials on demand:
+
+- **Official Project-1 Report**: Run `python build_official_project_report_2026.py` to compile the calibrated report (`.docx` and `.pdf`).
+- **Evaluation Presentation**: Run `python build_evaluation_deck_and_paper.py` to build the 16:9 widescreen evaluation deck (`.pptx` and `.pdf`).
+- **Academic Research Paper**: Run `python generate_academic_paper.py` to render the single-column research paper (`.html`, `.pdf`, and `.md`).
 
 ## Tech Stack
 

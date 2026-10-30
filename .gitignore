@@ -3,3 +3,10 @@ __pycache__/
 *.pt
 .venv/
 data/
+
+# Generated deliverables (Reports, Presentations, Documents)
+*.pdf
+*.pptx
+*.docx
+Crowd_Safety_Monitor_Academic_Paper.html
+Crowd_Safety_Monitor_Academic_Paper.md
